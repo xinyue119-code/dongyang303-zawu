@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>文具盒</title>
+<meta name="theme-color" content="#f3f5f2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="文具盒">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="kind.js"></script>
+<style>
+/* 和东阳303同一套骨架：手机单列、底部分页、底部弹出面板。只有这一段颜色和 kind.js 跟另一个 app 不一样。 */
+:root{
+  --bg:#f3f5f2; --surface:#ffffff; --surface-2:#e7ece6; --line:#d3dbd2;
+  --fg:#1d2620; --muted:#66736a; --accent:#2c6e5a; --accent-soft:#dcefe7; --on-accent:#ffffff;
+  --tag:#b5563d; --warn:#b07a12; --ok:#2f7a55;
+  --f-body:-apple-system,"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --f-code:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121815; --surface:#1b2420; --surface-2:#25302b; --line:#35443d;
+  --fg:#e6efe9; --muted:#9bada3; --accent:#7fd0b3; --accent-soft:#1f4035; --on-accent:#0c2019;
+  --tag:#e08a70; --warn:#e0b24f; --ok:#6cc39a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121815; --surface:#1b2420; --surface-2:#25302b; --line:#35443d;
+  --fg:#e6efe9; --muted:#9bada3; --accent:#7fd0b3; --accent-soft:#1f4035; --on-accent:#0c2019;
+  --tag:#e08a70; --warn:#e0b24f; --ok:#6cc39a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55;-webkit-tap-highlight-color:transparent}
+main{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:18px 120px}
+h1{font-size:22px;margin:0;letter-spacing:.02em}
+h2{font-size:16px;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px}
+.sub a{color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.stack{display:flex;flex-direction:column;gap:14px}
+section{display:flex;flex-direction:column;gap:10px}
+.code{font-family:var(--f-code);font-weight:600;font-size:12px;letter-spacing:.04em;color:var(--tag);border:1.5px solid currentColor;border-radius:4px;padding:0 5px;line-height:18px;display:inline-block;white-space:nowrap}
+.ro-pill{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 9px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:14px}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--tag);border-color:var(--tag)}
+.btn[disabled]{opacity:.45;cursor:default}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.strip .card{flex:0 0 108px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.card{background:var(--surface);border-radius:var(--r);overflow:hidden;border:1px solid var(--line);text-align:left;padding:0;display:flex;flex-direction:column;min-width:0;position:relative}
+.card .ph{aspect-ratio:3/4;background:var(--surface-2);display:grid;place-items:center;color:var(--muted);font-size:12px;max-width:100%}
+.card .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.card .meta{padding:5px 7px 7px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.card .meta b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .meta span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .check{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:2px solid var(--line);display:grid;place-items:center;font-size:14px;font-weight:700}
+.card .badge{position:absolute;top:6px;left:6px;font-size:11px;line-height:18px;padding:0 7px;border-radius:999px;background:var(--surface);color:var(--accent);border:1px solid var(--accent);font-variant-numeric:tabular-nums}
+.card .badge.late{color:var(--tag);border-color:var(--tag)}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.card.sel .check{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.empty{border:1.5px dashed var(--line);border-radius:var(--r);padding:18px;color:var(--muted);font-size:14px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.search{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:11px 16px;font:inherit;font-size:16px;color:var(--fg)}
+.search.big{border:2px solid var(--accent)}
+select,input[type=text],input[type=number],input[type=date],input[type=email],input[type=password]{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;min-height:40px}
+label.f,.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+.tabs div{display:flex;max-width:760px;width:100%}
+.tabs button{flex:1;border:0;background:none;padding:9px 0 11px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
+.tabs svg{width:22px;height:22px}
+.fab{position:fixed;right:18px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;padding:12px 18px;font-weight:700;font-size:15px;box-shadow:0 6px 18px rgba(20,30,60,.25)}
+.sheet-bg{position:fixed;inset:0;background:rgba(10,14,25,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:640px;max-height:92%;overflow-y:auto;border-radius:18px 18px 0 0;padding-inline:16px;padding-block:14px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto}
+.photo-pick{position:relative;aspect-ratio:4/3;max-width:100%;border:1.5px dashed var(--line);border-radius:var(--r);background:var(--surface);display:grid;place-items:center;overflow:hidden;color:var(--muted);text-align:center;padding:0;width:100%}
+.photo-pick img{width:100%;height:100%;object-fit:contain}
+.photo-pick .chg{position:absolute;right:8px;bottom:8px;background:rgba(10,14,25,.6);color:#fff;font-size:12px;padding:4px 10px;border-radius:999px}
+.big-photo{width:100%;max-height:52vh;object-fit:contain;border-radius:var(--r);background:var(--surface-2);aspect-ratio:4/3}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;margin:0}
+.kv dt{color:var(--muted)}.kv dd{margin:0;min-width:0}
+.late{color:var(--tag)}.soon{color:var(--warn)}
+.bar-row{display:grid;grid-template-columns:7em 1fr 6.5em;gap:8px;align-items:center;font-size:13px;font-variant-numeric:tabular-nums}
+.bar-row span:last-child{color:var(--muted);text-align:right}
+.bar{height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden;display:flex}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar i.n{background:var(--accent-soft)}
+.big-num{font-family:var(--f-code);font-size:30px;font-weight:600;color:var(--accent);line-height:1}
+.review-card{display:flex;flex-direction:column;gap:12px;align-items:stretch}
+.review-card img,.review-card .noimg{width:100%;max-height:48vh;object-fit:contain;border-radius:var(--r);background:var(--surface-2)}
+.review-card .noimg{aspect-ratio:4/3;display:grid;place-items:center;color:var(--muted)}
+.rv-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.rv-btns button{padding:14px 4px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.rv-btns .w{color:var(--ok)}.rv-btns .n{color:var(--warn)}.rv-btns .d{color:var(--tag)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(130px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:14px;z-index:20;max-width:90%}
+.notice{background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid var(--warn);border-radius:var(--r);padding:12px;font-size:14px}
+.seg{display:flex;background:var(--surface-2);border-radius:999px;padding:3px}
+.seg button{flex:1;border:0;background:none;border-radius:999px;padding:6px 8px;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--surface);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.cat-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px}
+.cat-head b{font-size:14px}
+.stock{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.stock .mini{width:42px;height:42px;border-radius:8px;border:0;padding:0;overflow:hidden;background:var(--surface-2);color:var(--muted);font-size:10px}
+.stock .mini img{width:100%;height:100%;object-fit:cover;display:block}
+.stock .txt{min-width:0}
+.stock b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stock .where{font-size:12px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stepper{display:flex;align-items:center;gap:4px}
+.stepper button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);font-size:18px;font-weight:700;line-height:1}
+.stepper .go{width:auto;height:30px;border-radius:999px;background:none;border:1px solid var(--accent);color:var(--accent);font-size:12px;font-weight:600;padding:0 10px;margin-left:4px}
+.stepper .q{min-width:2em;text-align:center;font-family:var(--f-code);font-weight:600;font-size:17px;font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
+html{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.logo{width:44px;height:44px;border-radius:10px;flex:none}
+.brand{display:flex;align-items:center;gap:10px}
+.login{max-width:360px;margin:8vh auto 0;display:flex;flex-direction:column;gap:14px;align-items:stretch;text-align:center}
+.login img{width:120px;height:120px;margin:0 auto;border-radius:26px}
+.login input{font-size:16px}
+</style>
+</head>
+<body>
+
+<main id="app">
+  <div class="stack">
+    <div><h1>文具盒</h1><div class="sub">正在读取…</div></div>
+  </div>
+</main>
+
+<button class="fab" id="fab" type="button" hidden>＋ 录入</button>
+<nav class="tabs" aria-label="主菜单"><div id="tabs"></div></nav>
+<div id="sheet-root"></div>
+<div id="toast-root"></div>
+
+<script>
+/* 这段脚本在「化妆台」和「文具盒」里一模一样，区别全在 kind.js。改了一边记得把另一边也换掉。
+   数据放在东阳303同一个 Firebase 里：<id>_items / <id>_photos 是自己的，locations 只读，共用东阳303的收纳位置。 */
+const K = window.KIND;
+const HOME_URL = "https://xinyue119-code.github.io/dongyang303/";
+const CATS = K.cats.flatMap(g=>g.items);
+const CAT_PAO = Object.fromEntries(CATS);
+const STATES = {open:"在用", new:"没开封"};
+const SEASONS = ["春","夏","秋","冬"];
+const DAY = 86400000;
+
+const S = { items:[], locs:[], tab:"home", gq:"", fCat:"", fState:"", fLoc:"", loaded:{i:false,l:false},
+  sortSel:new Set(), sortTarget:"", db:null, ro:false, photoCache:{}, sticky:{cat:"",state:"open",loc:""} };
+
+const $ = (s,r=document)=>r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function toast(t){const r=$("#toast-root");r.innerHTML=`<div class="toast">${esc(t)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>r.innerHTML="",2400)}
+const col = n => S.db.collection(K.id+"_"+n);
+const ref = (n,id) => S.db.doc(K.id+"_"+n+"/"+id);
+
+function curSeason(d=new Date()){const m=d.getMonth()+1;return m>=3&&m<=5?"春":m>=6&&m<=8?"夏":m>=9&&m<=11?"秋":"冬"}
+function reviewKey(){const d=new Date();return (d.getMonth()<2?d.getFullYear()-1:d.getFullYear())+curSeason(d)}
+const today0 = () => new Date().setHours(0,0,0,0);
+const ymd = ms => {const d=new Date(ms);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const fromYmd = s => {const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d).getTime()};
+const dateText = ms => new Date(ms).toLocaleDateString("zh-CN");
+function addMonths(ms,n){const d=new Date(ms);d.setHours(0,0,0,0);d.setMonth(d.getMonth()+n);return d.getTime()}
+
+const locById = id => S.locs.find(l=>l.id===id);
+const locName = id => { if(!id) return "待整理"; const l=locById(id); return l?l.name:"待整理"; };
+const locLabel = l => (l.code?l.code+"  ":"")+l.name;
+const byId = id => S.items.find(x=>x.id===id);
+const activeItems = () => S.items.filter(i=>i.status!=="gone");
+const isOpen = i => i.state!=="new";
+const qtyOf = i => isOpen(i)?1:Math.max(1,+i.qty||1);
+const itemTitle = i => i.note || i.cat;
+const lastUse = i => i.lastUsed || i.opened || i.created || 0;
+const idleDays = i => Math.floor((Date.now()-lastUse(i))/DAY);
+// 到期日：包装上的期限、开封日＋开封后能用几个月，哪个早算哪个
+function dueOf(i){if(!K.expiry)return 0;const c=[];
+  if(i.exp)c.push(fromYmd(i.exp));
+  if(isOpen(i)&&i.opened&&i.pao)c.push(addMonths(i.opened,i.pao));
+  return c.length?Math.min(...c):0}
+const daysLeft = i => {const d=dueOf(i);return d?Math.round((d-today0())/DAY):null};
+const dueText = n => n<0?`已过期 ${-n} 天`:n===0?"今天到期":`还剩 ${n} 天`;
+const expired = i => {const n=daysLeft(i);return n!=null&&n<0};
+const notCount = i => Object.values(i.reviews||{}).filter(x=>x==="not").length;
+
+function cardHTML(i,opts={}){
+  const n=daysLeft(i);
+  const badge=n!=null&&n<0&&i.status!=="gone"?`<span class="badge late">过期</span>`:!isOpen(i)?`<span class="badge">囤 ×${qtyOf(i)}</span>`:"";
+  return `<button class="card${opts.sel?" sel":""}" type="button" data-item="${esc(i.id)}"${opts.selectable?' data-pick="1"':""}>
+    <div class="ph">${i.thumb?`<img src="${i.thumb}" alt="" loading="lazy">`:"无照片"}</div>
+    <div class="meta"><b>${esc(itemTitle(i))}</b><span>${esc(opts.sub ?? locName(i.loc))}</span></div>
+    ${opts.selectable?`<span class="check">${opts.sel?"✓":""}</span>`:badge}
+  </button>`;
+}
+
+/* ---------- tabs ---------- */
+const ICONS={
+ home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg>',
+ stock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg>',
+ sort:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h18v12H3zM3 8l2-4h14l2 4M9 12h6"/></svg>',
+ review:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>'};
+const TABS=[["home","首页"],["stock","囤货"],["sort","整理"],["review","盘点"]];
+const TAB_KEY="tab-"+K.id;
+function renderTabs(){$("#tabs").innerHTML=TABS.map(([k,n])=>`<button type="button" data-tab="${k}" ${S.tab===k?'aria-current="page"':""}>${ICONS[k]}${n}</button>`).join("")}
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;S.tab=b.dataset.tab;try{localStorage.setItem(TAB_KEY,S.tab)}catch(_){}render();window.scrollTo(0,0)});
+
+/* ---------- main render ---------- */
+function header(sub){return `<div class="row between"><div class="brand"><img class="logo" src="icon-192.png" alt=""><div><h1>${esc(K.name)}</h1><div class="sub">${sub}</div></div></div>${S.ro?'<span class="ro-pill">只读</span>':""}</div>`}
+function render(){
+  renderTabs();
+  $("#fab").hidden = S.ro || !S.db || S.tab==="review";
+  const app=$("#app");
+  if(!S.authReady)return;
+  $(".tabs").hidden=!S.user;
+  if(!S.user){$("#fab").hidden=true;app.innerHTML=loginHTML();return}
+  if(!S.db)return;
+  if(!(S.loaded.i&&S.loaded.l))return;
+  if(S.tab==="home")app.innerHTML=homeHTML();
+  else if(S.tab==="stock")app.innerHTML=stockTabHTML();
+  else if(S.tab==="sort")app.innerHTML=sortHTML();
+  else app.innerHTML=reviewHTML();
+}
+function rerenderKeepFocus(id){const el=document.getElementById(id);const pos=el?el.selectionStart:null;render();const n=document.getElementById(id);if(n&&pos!=null){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}
+
+/* ---------- search ---------- */
+const hay = i => [i.note,i.shade,i.cat,(i.colors||[]).join(" "),locName(i.loc),STATES[isOpen(i)?"open":"new"]].join(" ").toLowerCase();
+function searchHTML(q){
+  const hits=S.items.filter(i=>hay(i).includes(q.toLowerCase()));
+  const act=hits.filter(i=>i.status!=="gone"), gone=hits.filter(i=>i.status==="gone");
+  let h=`<section><div class="sub">现在有 ${act.reduce((s,i)=>s+qtyOf(i),0)} ${K.unit}${gone.length?`，以前用完过 ${gone.length} ${K.unit}`:""}</div>`;
+  if(!hits.length)h+=`<div class="empty">没找到「${esc(q)}」。家里应该没有，或者换个说法试试。</div>`;
+  if(act.length)h+=`<div class="grid">${act.map(i=>cardHTML(i)).join("")}</div>`;
+  if(gone.length)h+=`<h2>以前用完的</h2><div class="grid">${gone.map(i=>cardHTML(i,{sub:"用完于 "+dateText(i.goneAt||0)})).join("")}</div>`;
+  return h+`</section>`;
+}
+
+/* ---------- home ---------- */
+function homeHTML(){
+  const items=activeItems();
+  const open=items.filter(isOpen), fresh=items.filter(i=>!isOpen(i));
+  const pending=items.filter(i=>!i.loc||!locById(i.loc)).length;
+  let h=`<div class="stack">${header(`在用 ${open.length} ${K.unit} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)} ${K.unit}`)}
+   <input class="search big" id="gq" type="search" placeholder="${esc(K.searchHint)}" value="${esc(S.gq)}" autocomplete="off">`;
+  if(S.gq.trim())return h+searchHTML(S.gq.trim())+`</div>`;
+  if(!items.length)return h+`<div class="empty">${K.emptyHint}</div></div>`;
+  const strip=(t,sub,arr,subFn)=>`<section><div class="row between"><h2>${t}</h2><span class="sub">${arr.length} ${K.unit}</span></div>${sub?`<div class="sub">${sub}</div>`:""}
+    ${arr.length?`<div class="strip">${arr.slice(0,20).map(i=>cardHTML(i,subFn?{sub:subFn(i)}:{})).join("")}</div>`:`<div class="empty">暂时没有</div>`}</section>`;
+  if(K.expiry){const due=items.filter(i=>{const n=daysLeft(i);return n!=null&&n<=30}).sort((a,b)=>daysLeft(a)-daysLeft(b));
+    if(due.length)h+=strip("快到期了","已经过期，或者 30 天内到期",due,i=>dueText(daysLeft(i)))}
+  h+=strip("正在用","已经开封的，最近用过的排前面",[...open].sort((a,b)=>lastUse(b)-lastUse(a)));
+  const idle=open.filter(i=>idleDays(i)>=K.idleDays).sort((a,b)=>lastUse(a)-lastUse(b));
+  if(idle.length)h+=strip("好久没用",`开封了，但 ${K.idleDays} 天以上没点过「今天用了」`,idle,i=>idleDays(i)+" 天没用");
+  if(fresh.length)h+=strip("囤货","还没开封的。买新的之前先看这里",fresh,i=>i.cat+" · "+locName(i.loc));
+  if(pending)h+=`<div class="notice">还有 ${pending} ${K.unit}没记位置，去「整理」把它们放进收纳。</div>`;
+  let list=items.filter(i=>(!S.fCat||i.cat===S.fCat)&&(!S.fState||(S.fState==="open")===isOpen(i))&&(!S.fLoc||(S.fLoc==="_none"?(!i.loc||!locById(i.loc)):i.loc===S.fLoc)));
+  list.sort((a,b)=>(b.created||0)-(a.created||0));
+  const usedCats=CATS.map(c=>c[0]).filter(c=>items.some(i=>i.cat===c));
+  const usedLocs=S.locs.filter(l=>items.some(i=>i.loc===l.id));
+  h+=`<section><h2>全部</h2>
+    <div class="chips" data-f="fCat"><button class="chip" type="button" data-v="" aria-pressed="${!S.fCat}">全部</button>${usedCats.map(c=>`<button class="chip" type="button" data-v="${esc(c)}" aria-pressed="${S.fCat===c}">${esc(c)}</button>`).join("")}</div>
+    <div class="row"><div class="chips" data-f="fState">${Object.entries(STATES).map(([k,n])=>`<button class="chip" type="button" data-v="${k}" aria-pressed="${S.fState===k}">${n}</button>`).join("")}</div>
+    <select id="fLoc" style="width:auto;flex:1;min-width:9em"><option value="">所有位置</option><option value="_none" ${S.fLoc==="_none"?"selected":""}>待整理</option>${usedLocs.map(l=>`<option value="${esc(l.id)}" ${S.fLoc===l.id?"selected":""}>${esc(l.name)}</option>`).join("")}</select></div>
+    ${list.length?`<div class="grid">${list.map(i=>cardHTML(i)).join("")}</div>`:`<div class="empty">没有符合条件的</div>`}
+  </section></div>`;
+  return h;
+}
+
+/* ---------- stock：买之前看一眼已经有几个 ---------- */
+function stockRowHTML(i){
+  return `<div class="stock"><button class="mini" type="button" data-item="${esc(i.id)}" aria-label="看详情">${i.thumb?`<img src="${i.thumb}" alt="">`:"无图"}</button>
+   <div class="txt"><b>${esc(itemTitle(i))}</b><span class="where">${esc([i.shade,locName(i.loc)].filter(Boolean).join(" · "))}</span></div>
+   <div class="stepper">${S.ro?"":`<button type="button" data-step="-1" data-id="${esc(i.id)}" aria-label="减一" ${qtyOf(i)<=1?"disabled":""}>−</button>`}<span class="q">${qtyOf(i)}</span>${S.ro?"":`<button type="button" data-step="1" data-id="${esc(i.id)}" aria-label="加一">＋</button><button class="go" type="button" data-act="open-one" data-id="${esc(i.id)}">开封</button>`}</div></div>`}
+function stockTabHTML(){
+  const items=activeItems();
+  let h=`<div class="stack"><div><h1>囤货</h1><div class="sub">买之前看一眼：这一类已经有几${K.unit}在用、还囤着几${K.unit}</div></div>`;
+  if(!items.length)h+=`<div class="empty">还没有录入。录入时把状态选成「没开封」，就会出现在这里。</div>`;
+  K.cats.forEach(g=>{
+    const rows=g.items.map(([c])=>{const its=items.filter(i=>i.cat===c);if(!its.length)return "";
+      const fresh=its.filter(i=>!isOpen(i));
+      return `<div class="cat-head"><b>${esc(c)}</b><span class="sub">在用 ${its.length-fresh.length} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)}</span></div>${fresh.map(stockRowHTML).join("")}`}).join("");
+    if(rows)h+=`<section><h2>${esc(g.g)}</h2>${rows}</section>`});
+  return h+`</div>`;
+}
+
+/* ---------- sort ---------- */
+function sortHTML(){
+  const items=activeItems();
+  const pend=items.filter(i=>!i.loc||!locById(i.loc));
+  const byCat=CATS.map(([c])=>{const its=items.filter(i=>i.cat===c);const o=its.filter(isOpen).length;return {c,o,n:its.reduce((s,i)=>s+qtyOf(i),0)-o}}).filter(x=>x.o+x.n);
+  const maxN=Math.max(1,...byCat.map(x=>x.o+x.n));
+  let h=`<div class="stack"><div><h1>整理</h1><div class="sub">先全部录入，再把没记位置的一起放进收纳</div></div>`;
+  h+=`<section class="panel"><h2>放进收纳</h2>
+    <label class="f">要放进哪里<select id="sortTarget"><option value="">选择一个位置…</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${S.sortTarget===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>
+    ${pend.length?`<div class="sub">点选待整理的（已选 ${S.sortSel.size} ${K.unit}）</div><div class="grid">${pend.map(i=>cardHTML(i,{selectable:true,sel:S.sortSel.has(i.id),sub:i.cat})).join("")}</div>
+    <div class="row"><button class="btn primary" type="button" data-act="do-sort" ${!S.sortTarget||!S.sortSel.size||S.ro?"disabled":""}>放进去</button><button class="btn" type="button" data-act="sel-all">全选</button><button class="btn" type="button" data-act="sel-none">清空</button></div>`
+     :`<div class="empty">没有待整理的${items.length?"，全部都有位置了":""}</div>`}
+    <div class="sub">收纳位置和东阳303共用。要新增或改名，去<a href="${HOME_URL}">东阳303</a>的「地图」里改。</div>
+  </section>`;
+  h+=`<section class="panel"><h2>每一类有多少</h2>
+    ${byCat.length?`<div class="sub">深色是在用的，浅色是囤货</div><div class="stack" style="gap:6px">${byCat.map(x=>`<div class="bar-row"><span>${esc(x.c)}</span><span class="bar"><i style="width:${x.o/maxN*100}%"></i><i class="n" style="width:${x.n/maxN*100}%"></i></span><span>用${x.o} 囤${x.n}</span></div>`).join("")}</div>`
+     :`<div class="empty">录入之后，这里会按类别统计。</div>`}
+  </section>
+  <div class="row between"><span class="sub">已登录：${esc(S.user?.email||"")}</span><button class="btn" type="button" data-act="logout">退出登录</button></div></div>`;
+  return h;
+}
+
+/* ---------- review ---------- */
+function reviewHTML(){
+  const key=reviewKey(), label=key.slice(0,4)+"年"+key.slice(4)+"季";
+  const items=activeItems();
+  const pool=items.filter(isOpen);
+  const todo=pool.filter(i=>!(i.reviews&&i.reviews[key]));
+  const done=pool.length-todo.length;
+  const cand=items.filter(i=>{if(i.kept)return false;return Object.values(i.reviews||{}).includes("drop")||notCount(i)>=2||expired(i)});
+  const empties=S.items.filter(i=>i.status==="gone").sort((a,b)=>(b.goneAt||0)-(a.goneAt||0));
+  const y0=new Date(new Date().getFullYear(),0,1).getTime();
+  let h=`<div class="stack"><div><h1>盘点</h1><div class="sub">一季一次：在用的这些，这季真的用过吗？</div></div>`;
+  if(!pool.length)h+=`<div class="empty">还没有在用的东西。</div>`;
+  else if(!todo.length)h+=`<div class="panel"><h2>${label}已经盘点完 ✓</h2><div class="sub">共 ${pool.length} ${K.unit}</div></div>`;
+  else if(S.ro)h+=`<div class="panel"><div class="sub">${label} · 已盘点 ${done} / ${pool.length} ${K.unit}</div></div>`;
+  else{const i=todo[0];
+    h+=`<div class="panel review-card"><div class="row between"><span class="sub">${label} · 第 ${done+1} / ${pool.length} ${K.unit}</span><button class="btn" type="button" data-act="rv-skip" data-id="${esc(i.id)}">先跳过</button></div>
+      ${i.thumb?`<img src="${i.thumb}" alt="">`:`<div class="noimg">无照片</div>`}
+      <div><b>${esc(itemTitle(i))}</b><div class="sub">${esc(i.cat)} · 在 ${esc(locName(i.loc))}${i.lastUsed?" · 上次用 "+dateText(i.lastUsed):""}</div></div>
+      <div class="rv-btns"><button class="w" type="button" data-rvset="used" data-id="${esc(i.id)}">用过</button><button class="n" type="button" data-rvset="not" data-id="${esc(i.id)}">没用</button><button class="d" type="button" data-rvset="drop" data-id="${esc(i.id)}">不想要了</button></div></div>`}
+  h+=`<section><div class="row between"><h2>考虑处理</h2><span class="sub">${cand.length} ${K.unit}</span></div><div class="sub">标过「不想要了」、有两季都没用${K.expiry?"，或者已经过期的":"的"}</div>
+    ${cand.length?`<div class="grid">${cand.map(i=>cardHTML(i,{sub:expired(i)?dueText(daysLeft(i)):Object.values(i.reviews||{}).includes("drop")?"不想要了":"没用 "+notCount(i)+" 季"})).join("")}</div>`:`<div class="empty">暂时没有</div>`}</section>
+   <section><div class="row between"><h2>用完的</h2><span class="sub">今年 ${empties.filter(i=>(i.goneAt||0)>=y0).length} ${K.unit}</span></div><div class="sub">点过「用完了」的会留在这里，想回购时能查到是哪一个</div>
+    ${empties.length?`<div class="grid">${empties.slice(0,60).map(i=>cardHTML(i,{sub:"用完于 "+dateText(i.goneAt||0)})).join("")}</div>`:`<div class="empty">还没有用完的记录</div>`}</section></div>`;
+  return h;
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html){$("#sheet-root").innerHTML=`<div class="sheet-bg" id="sbg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;document.body.style.overflow="hidden"}
+function closeSheet(){$("#sheet-root").innerHTML="";document.body.style.overflow=""}
+$("#sheet-root").addEventListener("click",e=>{if(e.target.id==="sbg")closeSheet()});
+
+let draft=null;
+function openForm(item){
+  const st=S.sticky;
+  draft=item?{...item,state:isOpen(item)?"open":"new",colors:[...(item.colors||[])],_file:null,_preview:item.thumb||""}
+    :{cat:st.cat,state:st.state,colors:[],loc:st.loc,note:"",shade:"",qty:1,opened:0,pao:CAT_PAO[st.cat]??12,exp:"",_file:null,_preview:""};
+  renderForm();
+}
+// 把输入框里已经填的东西收回 draft，重画表单时才不会丢
+function readForm(){const d=draft,v=id=>{const el=document.getElementById(id);return el?el.value:null};let x;
+  if((x=v("fm-note"))!=null)d.note=x.trim();
+  if((x=v("fm-shade"))!=null)d.shade=x.trim();
+  if((x=v("fm-loc"))!=null)d.loc=x;
+  if((x=v("fm-qty"))!=null)d.qty=Math.max(1,parseInt(x,10)||1);
+  if((x=v("fm-opened"))!=null)d.opened=x?fromYmd(x):0;
+  if((x=v("fm-exp"))!=null)d.exp=x}
+function renderForm(keep){
+  const d=draft, edit=!!d.id, open=d.state==="open";
+  const top=keep?($(".sheet")?.scrollTop||0):0;
+  const chip=(v,n,on)=>`<button class="chip" type="button" data-v="${esc(v)}" aria-pressed="${on}">${esc(n)}</button>`;
+  openSheet(`<div class="row between"><h2>${edit?"编辑":"录入一"+K.unit}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
+   <input type="file" id="file" accept="image/*" hidden>
+   <button class="photo-pick" type="button" data-act="pick">${d._preview?`<img src="${d._preview}" alt=""><span class="chg">点击更换照片</span>`:`<span>点这里拍照或选照片<br><span class="sub">${esc(K.photoHint)}</span></span>`}</button>
+   <div class="f">类别 *${K.cats.map(g=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span style="flex:none;width:2.6em;line-height:28px">${esc(g.g)}</span><div class="chips" data-fm="cat">${g.items.map(([c])=>chip(c,c,d.cat===c)).join("")}</div></div>`).join("")}</div>
+   <div class="f">现在是<div class="seg" data-fm="state">${Object.entries(STATES).map(([k,n])=>`<button type="button" data-v="${k}" aria-pressed="${d.state===k}">${n}${k==="new"?"（囤货）":""}</button>`).join("")}</div></div>
+   ${open?"":`<label class="f">一样的有几${K.unit}<input type="number" id="fm-qty" value="${esc(d.qty||1)}" min="1" inputmode="numeric"></label>`}
+   ${K.expiry?`${open?`<label class="f">哪天开封的<input type="date" id="fm-opened" value="${ymd(d.opened||Date.now())}"></label>`:""}
+    <div class="f">开封后能用多久（瓶身上那个小罐子图标）<div class="chips" data-fm="pao">${K.paoOpts.map(m=>chip(m,m+" 个月",+d.pao===m)).join("")}${chip(0,"不算",!+d.pao)}</div></div>
+    <label class="f">包装上印的期限（可不填）<input type="date" id="fm-exp" value="${esc(d.exp||"")}"></label>`:""}
+   <label class="f">名称（可不填）<input type="text" id="fm-note" placeholder="${esc(K.notePh)}" value="${esc(d.note||"")}"></label>
+   <label class="f">${esc(K.shadeLabel)}（可不填）<input type="text" id="fm-shade" placeholder="${esc(K.shadePh)}" value="${esc(d.shade||"")}"></label>
+   ${K.colors?`<div class="f">颜色（可不填）<div class="chips" data-fm="colors">${K.colors.map(c=>chip(c,c,d.colors.includes(c))).join("")}</div></div>`:""}
+   <label class="f">放在哪里<select id="fm-loc"><option value="">待整理（之后再放）</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${d.loc===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>
+   <div class="row">${edit?`<button class="btn primary" type="button" data-act="save">保存</button>`:`<button class="btn primary" type="button" data-act="save-next">保存，下一${K.unit}</button><button class="btn" type="button" data-act="save">保存</button>`}</div>
+   <div class="sub" id="fm-msg"></div>
+   ${edit?`<div class="row" id="del-zone"><button class="btn danger" type="button" data-act="del-ask" data-id="${esc(d.id)}">删除</button></div>`:""}`);
+  if(keep){const s=$(".sheet");s.style.animation="none";s.scrollTop=top}
+}
+async function toJpeg(file,max,qs){
+  const url=URL.createObjectURL(file);
+  try{const img=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=url});
+    const s=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+    const c=document.createElement("canvas");c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    let out="";for(const q of qs){out=c.toDataURL("image/jpeg",q);if(out.length<190000)break}
+    return out;
+  }finally{URL.revokeObjectURL(url)}
+}
+async function saveDraft(next){
+  readForm();
+  const d=draft, msg=$("#fm-msg"), open=d.state==="open";
+  if(!d.cat){msg.textContent="请先选一个类别";return}
+  msg.textContent="保存中…";
+  document.querySelectorAll('[data-act="save"],[data-act="save-next"]').forEach(b=>b.disabled=true);
+  try{
+    let thumb=d.thumb||"", full=null;
+    if(d._file){thumb=await toJpeg(d._file,260,[.72,.6]);full=await toJpeg(d._file,900,[.75,.62,.5,.4]);}
+    const body={cat:d.cat,state:d.state,note:d.note,shade:d.shade,colors:d.colors,loc:d.loc,qty:open?1:d.qty,opened:open?(d.opened||Date.now()):0,
+      thumb,status:"active",hasPhoto:!!(full||d.hasPhoto)};
+    if(K.expiry){body.pao=+d.pao||0;body.exp=d.exp||""}
+    let id=d.id;
+    if(id){await ref("items",id).update(body)}
+    else{body.created=Date.now();body.lastUsed=0;body.usedCount=0;body.reviews={};const r=col("items").doc();id=r.id;await r.set(body)}
+    if(full){await ref("photos",id).set({data:full});S.photoCache[id]=full}
+    S.sticky={cat:d.cat,state:d.state,loc:d.loc};
+    if(next){toast("已保存，接着拍下一"+K.unit);openForm(null)}else{closeSheet();toast("已保存")}
+  }catch(e){msg.textContent="没保存成功："+(e&&e.message?e.message:"请稍后再试");
+    document.querySelectorAll('[data-act="save"],[data-act="save-next"]').forEach(b=>b.disabled=false)}
+}
+async function loadFull(id,img){
+  if(S.photoCache[id]){img.src=S.photoCache[id];return}
+  try{const s=await ref("photos",id).get();if(s.exists){const d=s.data().data;S.photoCache[id]=d;if(img.isConnected)img.src=d}}catch(_){}
+}
+
+function openItem(id){
+  const i=byId(id);if(!i)return;
+  const gone=i.status==="gone", open=isOpen(i), n=gone?null:daysLeft(i);
+  const rv=Object.entries(i.reviews||{}).map(([k,v])=>`${k}：${{used:"用过",not:"没用",drop:"不想要了"}[v]}`).join("，");
+  const l=locById(i.loc);
+  const flag=!gone&&i.kept!==true&&(Object.values(i.reviews||{}).includes("drop")||notCount(i)>=2||expired(i));
+  openSheet(`<div class="row between"><h2>${esc(itemTitle(i))}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
+   <input type="file" id="file-chg" accept="image/*" hidden>
+   ${i.thumb?`<img class="big-photo" id="bigph" src="${i.thumb}" alt="">`:""}
+   <dl class="kv"><dt>类别</dt><dd>${esc(i.cat)}</dd>
+   ${i.shade?`<dt>${esc(K.shadeLabel)}</dt><dd>${esc(i.shade)}</dd>`:""}
+   ${(i.colors||[]).length?`<dt>颜色</dt><dd>${esc(i.colors.join("、"))}</dd>`:""}
+   <dt>状态</dt><dd>${gone?"用完于 "+esc(dateText(i.goneAt||0)):open?"在用"+(i.opened?"，"+esc(dateText(i.opened))+" 开封":""):"没开封，囤着 "+qtyOf(i)+" "+K.unit}</dd>
+   ${n!=null?`<dt>到期</dt><dd class="${n<0?"late":n<=30?"soon":""}">${esc(dateText(dueOf(i)))}（${dueText(n)}）</dd>`:""}
+   ${gone?"":`<dt>在哪</dt><dd>${l?.code?`<span class="code">${esc(l.code)}</span> `:""}${esc(locName(i.loc))}</dd>`}
+   ${open&&!gone?`<dt>上次用</dt><dd>${i.lastUsed?esc(dateText(i.lastUsed)):"还没记录"}${i.usedCount?`（共记录 ${i.usedCount} 次）`:""}</dd>`:""}
+   ${rv?`<dt>盘点</dt><dd>${esc(rv)}</dd>`:""}</dl>
+   ${S.ro?"":gone?`<div class="row"><button class="btn" type="button" data-act="unfinish" data-id="${esc(i.id)}">其实还没用完</button></div>
+     <div class="row" id="del-zone"><button class="btn danger" type="button" data-act="del-ask" data-id="${esc(i.id)}">删除这条记录</button></div>`
+   :`<div class="row">${open?`<button class="btn primary" type="button" data-act="used" data-id="${esc(i.id)}">今天用了</button><button class="btn" type="button" data-act="finish" data-id="${esc(i.id)}">用完了</button>`
+      :`<button class="btn primary" type="button" data-act="open-one" data-id="${esc(i.id)}">开封${qtyOf(i)>1?"一"+K.unit:""}</button>`}
+     <button class="btn" type="button" data-act="chg-photo" data-id="${esc(i.id)}">${i.thumb?"换照片":"加照片"}</button><button class="btn" type="button" data-act="edit" data-id="${esc(i.id)}">编辑 / 换位置</button>
+     ${flag?`<button class="btn" type="button" data-act="keep" data-id="${esc(i.id)}">决定留着</button>`:""}</div>
+   <div class="sub" id="chg-msg"></div>
+   <div class="row" id="del-zone"><button class="btn danger" type="button" data-act="del-ask" data-id="${esc(i.id)}">删除</button></div>`}`);
+  const im=$("#bigph");if(im&&i.hasPhoto)loadFull(i.id,im);
+}
+async function changeItemPhoto(id,file){
+  const msg=$("#chg-msg");if(msg)msg.textContent="照片上传中…";
+  try{
+    const thumb=await toJpeg(file,260,[.72,.6]);
+    const full=await toJpeg(file,900,[.75,.62,.5,.4]);
+    await ref("items",id).update({thumb,hasPhoto:true});
+    await ref("photos",id).set({data:full});
+    S.photoCache[id]=full;
+    const idx=S.items.findIndex(x=>x.id===id);if(idx>=0)S.items[idx]={...S.items[idx],thumb,hasPhoto:true};
+    toast("照片已更新");
+    if($("#sheet-root").innerHTML)openItem(id);
+  }catch(e){const m=$("#chg-msg");if(m)m.textContent="没保存成功，请再试一次"}
+}
+// 开封：囤着好几个一样的，就分出一个变成「在用」，剩下的继续囤着
+async function openOne(id){
+  const i=byId(id);if(!i)return;const now=Date.now();
+  const upd={state:"open",opened:now,lastUsed:0,qty:1};
+  if(K.expiry&&!i.pao)upd.pao=CAT_PAO[i.cat]??12;
+  if(qtyOf(i)>1){
+    const {id:_,...rest}=i;const r=col("items").doc();
+    let full=null;if(i.hasPhoto){try{const s=await ref("photos",id).get();if(s.exists)full=s.data().data}catch(_){}}
+    await r.set({...rest,...upd,created:now,usedCount:0,reviews:{},hasPhoto:!!full});
+    if(full)await ref("photos",r.id).set({data:full});
+    await ref("items",id).update({qty:qtyOf(i)-1});
+  }else await ref("items",id).update(upd);
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.id==="fab"){openForm(null);return}
+  if(t.dataset.item&&!t.dataset.pick){openItem(t.dataset.item);return}
+  if(t.dataset.item&&t.dataset.pick){const id=t.dataset.item;S.sortSel.has(id)?S.sortSel.delete(id):S.sortSel.add(id);render();return}
+  if(t.dataset.step){const i=byId(t.dataset.id);if(!i)return;
+    try{await ref("items",i.id).update({qty:Math.max(1,qtyOf(i)+(+t.dataset.step))})}catch(_){toast("没保存成功")}
+    return}
+  if(t.dataset.rvset){const v=t.dataset.rvset,p=new firebase.firestore.FieldPath("reviews",reviewKey());
+    try{v==="drop"?await ref("items",t.dataset.id).update(p,v,"kept",false):await ref("items",t.dataset.id).update(p,v)}catch(_){toast("没保存成功，请再点一次")}return}
+  const box=t.closest("[data-f],[data-fm]");
+  if(box&&t.dataset.v!=null){
+    const v=t.dataset.v;
+    if(box.dataset.f){const k=box.dataset.f;S[k]=S[k]===v?"":v;render();return}
+    const k=box.dataset.fm;readForm();
+    if(k==="colors"){const a=draft.colors,ix=a.indexOf(v);ix>=0?a.splice(ix,1):a.push(v)}
+    else if(k==="pao")draft.pao=+v;
+    else{draft[k]=v;if(k==="cat"&&K.expiry&&!draft.id)draft.pao=CAT_PAO[v]??12}
+    renderForm(true);return
+  }
+  const a=t.dataset.act;if(!a)return;
+  if(a==="close")closeSheet();
+  else if(a==="pick")$("#file").click();
+  else if(a==="save")saveDraft(false);
+  else if(a==="save-next")saveDraft(true);
+  else if(a==="edit"){openForm(byId(t.dataset.id))}
+  else if(a==="chg-photo"){S.chgPhotoId=t.dataset.id;const f=$("#file-chg");if(f)f.click()}
+  else if(a==="used"){const i=byId(t.dataset.id);try{await ref("items",i.id).update({lastUsed:Date.now(),usedCount:(i.usedCount||0)+1});closeSheet();toast("记下了")}catch(_){toast("没保存成功")}}
+  else if(a==="open-one"){t.disabled=true;try{await openOne(t.dataset.id);closeSheet();toast("已开封，放进「正在用」")}catch(_){t.disabled=false;toast("没保存成功")}}
+  else if(a==="finish"){try{await ref("items",t.dataset.id).update({status:"gone",goneAt:Date.now()});closeSheet();toast("用完一"+K.unit+" ✓")}catch(_){toast("没保存成功")}}
+  else if(a==="unfinish"){try{await ref("items",t.dataset.id).update({status:"active"});closeSheet();toast("放回「正在用」")}catch(_){toast("没保存成功")}}
+  else if(a==="keep"){try{await ref("items",t.dataset.id).update({kept:true});closeSheet();toast("好的，留着")}catch(_){toast("没保存成功")}}
+  else if(a==="del-ask"){$("#del-zone").innerHTML=`<span class="sub">确定删除吗？照片也会一起删掉。用完了的话点「用完了」就好，不用删。</span><button class="btn danger" type="button" data-act="del" data-id="${esc(t.dataset.id)}">确定删除</button><button class="btn" type="button" data-act="close">取消</button>`}
+  else if(a==="del"){const id=t.dataset.id;try{await ref("items",id).delete();try{await ref("photos",id).delete()}catch(_){}closeSheet();toast("已删除")}catch(_){toast("没删除成功")}}
+  else if(a==="sel-all"){activeItems().filter(i=>!i.loc||!locById(i.loc)).forEach(i=>S.sortSel.add(i.id));render()}
+  else if(a==="sel-none"){S.sortSel.clear();render()}
+  else if(a==="do-sort"){const ids=[...S.sortSel],to=S.sortTarget;t.disabled=true;let ok=0;
+    for(const id of ids){try{await ref("items",id).update({loc:to});ok++}catch(_){}}
+    S.sortSel.clear();toast(`已放进 ${locName(to)}：${ok} ${K.unit}`);render()}
+  else if(a==="rv-skip"){const i=byId(t.dataset.id);S.items=S.items.filter(x=>x!==i).concat([i]);render()}
+  else if(a==="logout"){firebase.auth().signOut()}
+});
+document.addEventListener("change",e=>{
+  if(e.target.id==="file"&&e.target.files[0]){readForm();const f=e.target.files[0];draft._file=f;draft._preview=URL.createObjectURL(f);renderForm(true)}
+  if(e.target.id==="file-chg"&&e.target.files[0])changeItemPhoto(S.chgPhotoId,e.target.files[0]);
+  if(e.target.id==="fLoc"){S.fLoc=e.target.value;render()}
+  if(e.target.id==="sortTarget"){S.sortTarget=e.target.value;render()}
+});
+document.addEventListener("input",e=>{
+  if(e.target.id==="gq"){S.gq=e.target.value;clearTimeout(S.qt);S.qt=setTimeout(()=>rerenderKeepFocus("gq"),220)}
+});
+
+/* ---------- login ---------- */
+function loginHTML(){return `<form class="login" id="login-form" autocomplete="on">
+  <img src="icon-512.png" alt="">
+  <h1>${esc(K.name)}</h1>
+  <div class="sub">和东阳303用同一个账号</div>
+  <input type="email" id="lg-email" placeholder="邮箱" autocomplete="username" required>
+  <input type="password" id="lg-pass" placeholder="密码" autocomplete="current-password" required>
+  <button class="btn primary" type="submit" id="lg-btn">登录</button>
+  <div class="sub" id="lg-msg"></div></form>`}
+document.addEventListener("submit",async e=>{if(e.target.id!=="login-form")return;e.preventDefault();
+  const m=$("#lg-msg"),b=$("#lg-btn");b.disabled=true;m.textContent="登录中…";
+  try{await firebase.auth().signInWithEmailAndPassword($("#lg-email").value.trim(),$("#lg-pass").value)}
+  catch(err){const c=err&&err.code||"";m.textContent=c.includes("invalid")||c.includes("wrong")||c.includes("user-not-found")?"邮箱或密码不对，再试一次":c.includes("network")?"连不上网络，检查一下网络":"登录失败："+(err.message||c);b.disabled=false}});
+
+/* ---------- boot ---------- */
+try{const t=localStorage.getItem(TAB_KEY);if(t&&TABS.some(x=>x[0]===t))S.tab=t}catch(_){}
+renderTabs();
+let unsubs=[];
+function start(){
+  if(!window.firebase||!window.FIREBASE_CONFIG||!FIREBASE_CONFIG.apiKey){$("#app").innerHTML=`<div class="stack"><div class="notice">还没有填 Firebase 配置。</div></div>`;return}
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db=firebase.firestore();
+  try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(_){}
+  firebase.auth().onAuthStateChanged(user=>{
+    unsubs.forEach(u=>u());unsubs=[];S.user=user;S.authReady=true;S.db=null;S.loaded={i:false,l:false};
+    if(!user){render();return}
+    S.ro=(user.email||"").toLowerCase()!==String(window.OWNER_EMAIL||"").toLowerCase();
+    S.db=db;render();
+    const err=e=>{console.warn(e);toast(e&&e.code==="permission-denied"?"这个账号没有权限查看":"连接中断，刷新页面试试")};
+    unsubs.push(col("items").onSnapshot(s=>{S.items=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.i=true;render()},err));
+    unsubs.push(db.collection("locations").orderBy("order").onSnapshot(s=>{S.locs=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.l=true;render()},err));
+  });
+}
+start();
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+</script>
+</body>
+</html>

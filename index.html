@@ -197,6 +197,7 @@ const K = window.KIND;
 const HOME_URL = "https://xinyue119-code.github.io/dongyang303/";
 const ZAWU_URL = "https://xinyue119-code.github.io/dongyang303-zawu/";
 const HOUSE = !!K.house;
+const LOC = !K.noLoc;      // kind.js 里 noLoc:true 的 app 不记位置（化妆台）
 const CATS = K.cats.flatMap(g=>g.items);
 const CAT_PAO = Object.fromEntries(CATS);
 const STATES = {open:"在用", new:"没开封"};
@@ -210,7 +211,7 @@ const SPOTS = {
 // item（逐件拍衣服）归东阳303管，这里只管另外两种
 const MODES = {list:"记大概", count:"记数量"};
 
-const S = { items:[], locs:[], stock:[], tab:"home", gq:"", fCat:"", fState:"", fLoc:"", loaded:{i:false,l:false,s:!HOUSE},
+const S = { items:[], locs:[], stock:[], tab:"home", gq:"", fCat:"", fState:"", fLoc:"", loaded:{i:false,l:!LOC,s:!HOUSE},
   sortSel:new Set(), sortTarget:"", db:null, ro:false, photoCache:{}, sticky:{cat:"",state:"open",loc:""} };
 
 const $ = (s,r=document)=>r.querySelector(s);
@@ -258,7 +259,7 @@ function cardHTML(i,opts={}){
   const badge=n!=null&&n<0&&i.status!=="gone"?`<span class="badge late">过期</span>`:!isOpen(i)?`<span class="badge">囤 ×${qtyOf(i)}</span>`:"";
   return `<button class="card${opts.sel?" sel":""}" type="button" data-item="${esc(i.id)}"${opts.selectable?' data-pick="1"':""}>
     <div class="ph">${i.thumb?`<img src="${i.thumb}" alt="" loading="lazy">`:(catIcon(i.cat,"xl")||"无照片")}</div>
-    <div class="meta"><b>${esc(itemTitle(i))}</b><span>${esc(opts.sub ?? locName(i.loc))}</span></div>
+    <div class="meta"><b>${esc(itemTitle(i))}</b><span>${esc(opts.sub ?? (LOC?locName(i.loc):i.shade||i.cat))}</span></div>
     ${opts.selectable?`<span class="check">${opts.sel?"✓":""}</span>`:badge}
   </button>`;
 }
@@ -270,7 +271,7 @@ const ICONS={
  stock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg>',
  sort:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h18v12H3zM3 8l2-4h14l2 4M9 12h6"/></svg>',
  review:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>'};
-const TABS=HOUSE?[["home","首页"],["map","地图"],["stock","存货"],["sort","整理"],["review","盘点"]]:[["home","首页"],["stock","囤货"],["sort","整理"],["review","盘点"]];
+const TABS=(HOUSE?[["home","首页"],["map","地图"],["stock","存货"],["sort","整理"],["review","盘点"]]:[["home","首页"],["stock","囤货"],["sort","整理"],["review","盘点"]]).filter(t=>LOC||t[0]!=="sort");
 const TAB_KEY="tab-"+K.id;
 function renderTabs(){$("#tabs").innerHTML=TABS.map(([k,n])=>`<button type="button" data-tab="${k}" ${S.tab===k?'aria-current="page"':""}>${ICONS[k]}${n}</button>`).join("")}
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;S.tab=b.dataset.tab;try{localStorage.setItem(TAB_KEY,S.tab)}catch(_){}render();window.scrollTo(0,0)});
@@ -295,7 +296,7 @@ function render(){
 function rerenderKeepFocus(id){const el=document.getElementById(id);const pos=el?el.selectionStart:null;render();const n=document.getElementById(id);if(n&&pos!=null){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}
 
 /* ---------- search ---------- */
-const hay = i => [i.note,i.shade,i.cat,(i.colors||[]).join(" "),locName(i.loc),STATES[isOpen(i)?"open":"new"]].join(" ").toLowerCase();
+const hay = i => [i.note,i.shade,i.cat,(i.colors||[]).join(" "),LOC?locName(i.loc):"",STATES[isOpen(i)?"open":"new"]].join(" ").toLowerCase();
 function hl(text,q){const t=esc(text);if(!q)return t;const qe=esc(q).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");return t.replace(new RegExp(qe,"gi"),m=>`<mark>${m}</mark>`)}
 function snippet(text,q){const ql=q.toLowerCase();const ln=text.split(/\n/).find(x=>x.toLowerCase().includes(ql));
   if(!ln)return text.slice(0,60);const at=ln.toLowerCase().indexOf(ql);return ln.length>80?ln.slice(Math.max(0,at-30),at+50):ln}
@@ -321,7 +322,7 @@ function searchHTML(q){
 function homeHTML(){
   const items=activeItems();
   const open=items.filter(isOpen), fresh=items.filter(i=>!isOpen(i));
-  const pending=items.filter(i=>!i.loc||!locById(i.loc)).length;
+  const pending=LOC?items.filter(i=>!i.loc||!locById(i.loc)).length:0;
   let h=`<div class="stack">${header(`在用 ${open.length} ${K.unit} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)} ${K.unit}${HOUSE?` · 存货 ${S.stock.length} 种`:""}`)}
    <input class="search big" id="gq" type="search" placeholder="${esc(K.searchHint)}" value="${esc(S.gq)}" autocomplete="off">`;
   if(S.gq.trim())return h+searchHTML(S.gq.trim())+`</div>`;
@@ -333,7 +334,7 @@ function homeHTML(){
   h+=strip("正在用","已经开封的，最近用过的排前面",[...open].sort((a,b)=>lastUse(b)-lastUse(a)));
   const idle=open.filter(i=>idleDays(i)>=K.idleDays).sort((a,b)=>lastUse(a)-lastUse(b));
   if(idle.length)h+=strip("好久没用",`开封了，但 ${K.idleDays} 天以上没点过「今天用了」`,idle,i=>idleDays(i)+" 天没用");
-  if(fresh.length)h+=strip("囤货","还没开封的。买新的之前先看这里",fresh,i=>i.cat+" · "+locName(i.loc));
+  if(fresh.length)h+=strip("囤货","还没开封的。买新的之前先看这里",fresh,i=>LOC?i.cat+" · "+locName(i.loc):i.cat);
   if(pending)h+=`<div class="notice">还有 ${pending} ${K.unit}没记位置，去「整理」把它们放进收纳。</div>`;
   let list=items.filter(i=>(!S.fCat||i.cat===S.fCat)&&(!S.fState||(S.fState==="open")===isOpen(i))&&(!S.fLoc||(S.fLoc==="_none"?(!i.loc||!locById(i.loc)):i.loc===S.fLoc)));
   list.sort((a,b)=>(b.created||0)-(a.created||0));
@@ -342,7 +343,7 @@ function homeHTML(){
   h+=`<section><h2>全部</h2>
     <div class="chips" data-f="fCat"><button class="chip" type="button" data-v="" aria-pressed="${!S.fCat}">全部</button>${usedCats.map(c=>`<button class="chip" type="button" data-v="${esc(c)}" aria-pressed="${S.fCat===c}">${catIcon(c)}${esc(c)}</button>`).join("")}</div>
     <div class="row"><div class="chips" data-f="fState">${Object.entries(STATES).map(([k,n])=>`<button class="chip" type="button" data-v="${k}" aria-pressed="${S.fState===k}">${n}</button>`).join("")}</div>
-    <select id="fLoc" style="width:auto;flex:1;min-width:9em"><option value="">所有位置</option><option value="_none" ${S.fLoc==="_none"?"selected":""}>待整理</option>${usedLocs.map(l=>`<option value="${esc(l.id)}" ${S.fLoc===l.id?"selected":""}>${esc(l.name)}</option>`).join("")}</select></div>
+    ${LOC?`<select id="fLoc" style="width:auto;flex:1;min-width:9em"><option value="">所有位置</option><option value="_none" ${S.fLoc==="_none"?"selected":""}>待整理</option>${usedLocs.map(l=>`<option value="${esc(l.id)}" ${S.fLoc===l.id?"selected":""}>${esc(l.name)}</option>`).join("")}</select>`:""}</div>
     ${list.length?`<div class="grid">${list.map(i=>cardHTML(i)).join("")}</div>`:`<div class="empty">没有符合条件的</div>`}
   </section></div>`;
   return h;
@@ -351,7 +352,7 @@ function homeHTML(){
 /* ---------- stock：买之前看一眼已经有几个 ---------- */
 function freshRowHTML(i){
   return `<div class="stock"><button class="mini" type="button" data-item="${esc(i.id)}" aria-label="看详情">${i.thumb?`<img src="${i.thumb}" alt="">`:(catIcon(i.cat)||"无图")}</button>
-   <div class="txt"><b>${esc(itemTitle(i))}</b><span class="where">${esc([i.shade,locName(i.loc)].filter(Boolean).join(" · "))}</span></div>
+   <div class="txt"><b>${esc(itemTitle(i))}</b><span class="where">${esc([i.shade,LOC?locName(i.loc):""].filter(Boolean).join(" · "))}</span></div>
    <div class="stepper">${S.ro?"":`<button type="button" data-step="-1" data-id="${esc(i.id)}" aria-label="减一" ${qtyOf(i)<=1?"disabled":""}>−</button>`}<span class="q">${qtyOf(i)}</span>${S.ro?"":`<button type="button" data-step="1" data-id="${esc(i.id)}" aria-label="加一">＋</button><button class="go" type="button" data-act="open-one" data-id="${esc(i.id)}">开封</button>`}</div></div>`}
 // 存货：不拍照、只记名称和数量的（卫生巾、水、洗衣液…），跟着收纳位置走
 function stockInner(s){
@@ -385,7 +386,7 @@ function stockTabHTML(){
       const fresh=its.filter(i=>!isOpen(i));
       return `<div class="cat-head"><b>${catIcon(c)} ${esc(c)}</b><span class="sub">在用 ${its.length-fresh.length} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)}</span></div>${fresh.map(freshRowHTML).join("")}`}).join("");
     if(rows)h+=`<section><h2>${esc(g.g)}</h2>${rows}</section>`});
-  return h+`</div>`;
+  return h+(LOC?"":statsHTML()+accountHTML())+`</div>`;
 }
 
 /* ---------- map：只有 house 的 app 有。收纳位置、清单、存货都在这里管 ---------- */
@@ -499,8 +500,6 @@ function openNewLoc(pre){
 function sortHTML(){
   const items=activeItems();
   const pend=items.filter(i=>!i.loc||!locById(i.loc));
-  const byCat=CATS.map(([c])=>{const its=items.filter(i=>i.cat===c);const o=its.filter(isOpen).length;return {c,o,n:its.reduce((s,i)=>s+qtyOf(i),0)-o}}).filter(x=>x.o+x.n);
-  const maxN=Math.max(1,...byCat.map(x=>x.o+x.n));
   let h=`<div class="stack"><div><h1>整理</h1><div class="sub">先全部录入，再把没记位置的一起放进收纳</div></div>`;
   h+=`<section class="panel"><h2>放进收纳</h2>
     <label class="f">要放进哪里<select id="sortTarget"><option value="">选择一个位置…</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${S.sortTarget===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>
@@ -509,13 +508,18 @@ function sortHTML(){
      :`<div class="empty">没有待整理的${items.length?"，全部都有位置了":""}</div>`}
     <div class="sub">收纳位置和东阳303共用。要新增或改名，${HOUSE?"在「地图」里改。":`去<a href="${ZAWU_URL}">杂物间</a>的「地图」里改。`}</div>
   </section>`;
-  h+=`<section class="panel"><h2>每一类有多少</h2>
+  return h+statsHTML()+accountHTML()+`</div>`;
+}
+function statsHTML(){
+  const items=activeItems();
+  const byCat=CATS.map(([c])=>{const its=items.filter(i=>i.cat===c);const o=its.filter(isOpen).length;return {c,o,n:its.reduce((s,i)=>s+qtyOf(i),0)-o}}).filter(x=>x.o+x.n);
+  const maxN=Math.max(1,...byCat.map(x=>x.o+x.n));
+  return `<section class="panel"><h2>每一类有多少</h2>
     ${byCat.length?`<div class="sub">深色是在用的，浅色是囤货</div><div class="stack" style="gap:6px">${byCat.map(x=>`<div class="bar-row"><span>${esc(x.c)}</span><span class="bar"><i style="width:${x.o/maxN*100}%"></i><i class="n" style="width:${x.n/maxN*100}%"></i></span><span>用${x.o} 囤${x.n}</span></div>`).join("")}</div>`
      :`<div class="empty">录入之后，这里会按类别统计。</div>`}
-  </section>
-  <div class="row between"><span class="sub">已登录：${esc(S.user?.email||"")}</span><button class="btn" type="button" data-act="logout">退出登录</button></div></div>`;
-  return h;
+  </section>`;
 }
+const accountHTML = () => `<div class="row between"><span class="sub">已登录：${esc(S.user?.email||"")}</span><button class="btn" type="button" data-act="logout">退出登录</button></div>`;
 
 /* ---------- review ---------- */
 function reviewHTML(){
@@ -534,7 +538,7 @@ function reviewHTML(){
   else{const i=todo[0];
     h+=`<div class="panel review-card"><div class="row between"><span class="sub">${label} · 第 ${done+1} / ${pool.length} ${K.unit}</span><button class="btn" type="button" data-act="rv-skip" data-id="${esc(i.id)}">先跳过</button></div>
       ${i.thumb?`<img src="${i.thumb}" alt="">`:`<div class="noimg">无照片</div>`}
-      <div><b>${esc(itemTitle(i))}</b><div class="sub">${esc(i.cat)} · 在 ${esc(locName(i.loc))}${i.lastUsed?" · 上次用 "+dateText(i.lastUsed):""}</div></div>
+      <div><b>${esc(itemTitle(i))}</b><div class="sub">${esc(i.cat)}${LOC?" · 在 "+esc(locName(i.loc)):""}${i.lastUsed?" · 上次用 "+dateText(i.lastUsed):""}</div></div>
       <div class="rv-btns"><button class="w" type="button" data-rvset="used" data-id="${esc(i.id)}">用过</button><button class="n" type="button" data-rvset="not" data-id="${esc(i.id)}">没用</button><button class="d" type="button" data-rvset="drop" data-id="${esc(i.id)}">不想要了</button></div></div>`}
   h+=`<section><div class="row between"><h2>考虑处理</h2><span class="sub">${cand.length} ${K.unit}</span></div><div class="sub">标过「不想要了」、有两季都没用${K.expiry?"，或者已经过期的":"的"}</div>
     ${cand.length?`<div class="grid">${cand.map(i=>cardHTML(i,{sub:expired(i)?dueText(daysLeft(i)):Object.values(i.reviews||{}).includes("drop")?"不想要了":"没用 "+notCount(i)+" 季"})).join("")}</div>`:`<div class="empty">暂时没有</div>`}</section>
@@ -579,7 +583,7 @@ function renderForm(keep){
    <label class="f">名称（可不填）<input type="text" id="fm-note" placeholder="${esc(K.notePh)}" value="${esc(d.note||"")}"></label>
    <label class="f">${esc(K.shadeLabel)}（可不填）<input type="text" id="fm-shade" placeholder="${esc(K.shadePh)}" value="${esc(d.shade||"")}"></label>
    ${K.colors?`<div class="f">颜色（可不填）<div class="chips" data-fm="colors">${K.colors.map(c=>chip(c,c,d.colors.includes(c))).join("")}</div></div>`:""}
-   <label class="f">放在哪里<select id="fm-loc"><option value="">待整理（之后再放）</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${d.loc===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>
+   ${LOC?`<label class="f">放在哪里<select id="fm-loc"><option value="">待整理（之后再放）</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${d.loc===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>`:""}
    <div class="row">${edit?`<button class="btn primary" type="button" data-act="save">保存</button>`:`<button class="btn primary" type="button" data-act="save-next">保存，下一${K.unit}</button><button class="btn" type="button" data-act="save">保存</button>`}</div>
    <div class="sub" id="fm-msg"></div>
    ${edit?`<div class="row" id="del-zone"><button class="btn danger" type="button" data-act="del-ask" data-id="${esc(d.id)}">删除</button></div>`:""}`);
@@ -635,14 +639,14 @@ function openItem(id){
    ${(i.colors||[]).length?`<dt>颜色</dt><dd>${esc(i.colors.join("、"))}</dd>`:""}
    <dt>状态</dt><dd>${gone?"用完于 "+esc(dateText(i.goneAt||0)):open?"在用"+(i.opened?"，"+esc(dateText(i.opened))+" 开封":""):"没开封，囤着 "+qtyOf(i)+" "+K.unit}</dd>
    ${n!=null?`<dt>到期</dt><dd class="${n<0?"late":n<=30?"soon":""}">${esc(dateText(dueOf(i)))}（${dueText(n)}）</dd>`:""}
-   ${gone?"":`<dt>在哪</dt><dd>${l?.code?`<span class="code">${esc(l.code)}</span> `:""}${esc(locName(i.loc))}</dd>`}
+   ${gone||!LOC?"":`<dt>在哪</dt><dd>${l?.code?`<span class="code">${esc(l.code)}</span> `:""}${esc(locName(i.loc))}</dd>`}
    ${open&&!gone?`<dt>上次用</dt><dd>${i.lastUsed?esc(dateText(i.lastUsed)):"还没记录"}${i.usedCount?`（共记录 ${i.usedCount} 次）`:""}</dd>`:""}
    ${rv?`<dt>盘点</dt><dd>${esc(rv)}</dd>`:""}</dl>
    ${S.ro?"":gone?`<div class="row"><button class="btn" type="button" data-act="unfinish" data-id="${esc(i.id)}">其实还没用完</button></div>
      <div class="row" id="del-zone"><button class="btn danger" type="button" data-act="del-ask" data-id="${esc(i.id)}">删除这条记录</button></div>`
    :`<div class="row">${open?`<button class="btn primary" type="button" data-act="used" data-id="${esc(i.id)}">今天用了</button><button class="btn" type="button" data-act="finish" data-id="${esc(i.id)}">用完了</button>`
       :`<button class="btn primary" type="button" data-act="open-one" data-id="${esc(i.id)}">开封${qtyOf(i)>1?"一"+K.unit:""}</button>`}
-     <button class="btn" type="button" data-act="chg-photo" data-id="${esc(i.id)}">${i.thumb?"换照片":"加照片"}</button><button class="btn" type="button" data-act="edit" data-id="${esc(i.id)}">编辑 / 换位置</button>
+     <button class="btn" type="button" data-act="chg-photo" data-id="${esc(i.id)}">${i.thumb?"换照片":"加照片"}</button><button class="btn" type="button" data-act="edit" data-id="${esc(i.id)}">${LOC?"编辑 / 换位置":"编辑"}</button>
      ${flag?`<button class="btn" type="button" data-act="keep" data-id="${esc(i.id)}">决定留着</button>`:""}</div>
    <div class="sub" id="chg-msg"></div>
    <div class="row" id="del-zone"><button class="btn danger" type="button" data-act="del-ask" data-id="${esc(i.id)}">删除</button></div>`}`);
@@ -787,7 +791,7 @@ function start(){
   const db=firebase.firestore();
   try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(_){}
   firebase.auth().onAuthStateChanged(user=>{
-    unsubs.forEach(u=>u());unsubs=[];S.user=user;S.authReady=true;S.db=null;S.loaded={i:false,l:false,s:!HOUSE};
+    unsubs.forEach(u=>u());unsubs=[];S.user=user;S.authReady=true;S.db=null;S.loaded={i:false,l:!LOC,s:!HOUSE};
     if(!user){render();return}
     S.ro=(user.email||"").toLowerCase()!==String(window.OWNER_EMAIL||"").toLowerCase();
     S.db=db;render();
@@ -797,7 +801,7 @@ function start(){
       // 开着某个位置的面板时数量变了：重画面板，没保存的清单文字留着
       if(S.openLocId&&hasMode(locById(S.openLocId),"count")){const ta=$("#lc-contents"),txt=ta?ta.value:null,top=$(".sheet")?.scrollTop||0;openLoc(S.openLocId);
         const sh=$(".sheet");if(sh){sh.style.animation="none";sh.scrollTop=top}if(txt!=null&&$("#lc-contents"))$("#lc-contents").value=txt}},err));
-    unsubs.push(db.collection("locations").orderBy("order").onSnapshot(s=>{S.locs=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.l=true;render();
+    if(LOC)unsubs.push(db.collection("locations").orderBy("order").onSnapshot(s=>{S.locs=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.l=true;render();
       const h=location.hash.slice(1);if(HOUSE&&h&&locById(h)&&!S.hashDone){S.hashDone=true;S.tab="map";render();openLoc(h)}},err));
   });
 }

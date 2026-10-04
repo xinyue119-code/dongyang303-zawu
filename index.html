@@ -19,6 +19,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
 <script src="kind.js"></script>
+<script src="icons.js"></script>
 <style>
 /* 和东阳303同一套骨架：手机单列、底部分页、底部弹出面板。只有这一段颜色和 kind.js 跟另一个 app 不一样。 */
 :root{
@@ -59,6 +60,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:13px}
 .chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.ci{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:hsl(var(--h) 75% 91%);color:hsl(var(--h) 48% 40%);flex:none;vertical-align:middle}
+.ci svg{width:72%;height:72%;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ci .f{fill:currentColor;fill-opacity:.22}.ci .s{fill:currentColor;stroke:none}
+.ci.lg{width:40px;height:40px}.ci.xl{width:60px;height:60px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .ci{background:hsl(var(--h) 30% 26%);color:hsl(var(--h) 65% 80%)}}
+:root[data-theme="dark"] .ci{background:hsl(var(--h) 30% 26%);color:hsl(var(--h) 65% 80%)}
+.chip .ci{width:20px;height:20px;margin:-3px 4px -1px -6px}
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:4px}
+.chip.cat{border:1.5px solid transparent;background:none;border-radius:12px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;line-height:1.25;color:var(--fg);text-align:center;overflow-wrap:anywhere}
+.chip.cat .ci{margin:0;width:40px;height:40px}
+.chip.cat[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--fg);font-weight:600}
 .strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
 .strip .card{flex:0 0 108px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
@@ -88,6 +100,7 @@ label.f,.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(-
 .fab{position:fixed;right:18px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;padding:12px 18px;font-weight:700;font-size:15px;box-shadow:0 6px 18px rgba(20,30,60,.25)}
 .sheet-bg{position:fixed;inset:0;background:rgba(10,14,25,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--bg);width:100%;max-width:640px;max-height:92%;overflow-y:auto;border-radius:18px 18px 0 0;padding-inline:16px;padding-block:14px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+.sheet>*{flex-shrink:0}
 .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto}
 .photo-pick{position:relative;aspect-ratio:4/3;max-width:100%;border:1.5px dashed var(--line);border-radius:var(--r);background:var(--surface);display:grid;place-items:center;overflow:hidden;color:var(--muted);text-align:center;padding:0;width:100%}
 .photo-pick img{width:100%;height:100%;object-fit:contain}
@@ -117,6 +130,7 @@ label.f,.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(-
 .cat-head b{font-size:14px}
 .stock{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
 .stock .mini{width:42px;height:42px;border-radius:8px;border:0;padding:0;overflow:hidden;background:var(--surface-2);color:var(--muted);font-size:10px}
+.stock .mini .ci{width:100%;height:100%;border-radius:0}
 .stock .mini img{width:100%;height:100%;object-fit:cover;display:block}
 .stock .txt{min-width:0}
 .stock b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -213,6 +227,7 @@ const fromYmd = s => {const [y,m,d]=s.split("-").map(Number);return new Date(y,m
 const dateText = ms => new Date(ms).toLocaleDateString("zh-CN");
 function addMonths(ms,n){const d=new Date(ms);d.setHours(0,0,0,0);d.setMonth(d.getMonth()+n);return d.getTime()}
 
+const catIcon = (c,size="") => {const d=(window.CAT_ICONS||{})[c];return d?`<span class="ci ${size}" style="--h:${d[0]}" aria-hidden="true"><svg viewBox="0 0 24 24">${d[1]}</svg></span>`:""};
 const locById = id => S.locs.find(l=>l.id===id);
 const locName = id => { if(!id) return "待整理"; const l=locById(id); return l?l.name:"待整理"; };
 const locLabel = l => (l.code?l.code+"  ":"")+l.name;
@@ -242,7 +257,7 @@ function cardHTML(i,opts={}){
   const n=daysLeft(i);
   const badge=n!=null&&n<0&&i.status!=="gone"?`<span class="badge late">过期</span>`:!isOpen(i)?`<span class="badge">囤 ×${qtyOf(i)}</span>`:"";
   return `<button class="card${opts.sel?" sel":""}" type="button" data-item="${esc(i.id)}"${opts.selectable?' data-pick="1"':""}>
-    <div class="ph">${i.thumb?`<img src="${i.thumb}" alt="" loading="lazy">`:"无照片"}</div>
+    <div class="ph">${i.thumb?`<img src="${i.thumb}" alt="" loading="lazy">`:(catIcon(i.cat,"xl")||"无照片")}</div>
     <div class="meta"><b>${esc(itemTitle(i))}</b><span>${esc(opts.sub ?? locName(i.loc))}</span></div>
     ${opts.selectable?`<span class="check">${opts.sel?"✓":""}</span>`:badge}
   </button>`;
@@ -325,7 +340,7 @@ function homeHTML(){
   const usedCats=CATS.map(c=>c[0]).filter(c=>items.some(i=>i.cat===c));
   const usedLocs=S.locs.filter(l=>items.some(i=>i.loc===l.id));
   h+=`<section><h2>全部</h2>
-    <div class="chips" data-f="fCat"><button class="chip" type="button" data-v="" aria-pressed="${!S.fCat}">全部</button>${usedCats.map(c=>`<button class="chip" type="button" data-v="${esc(c)}" aria-pressed="${S.fCat===c}">${esc(c)}</button>`).join("")}</div>
+    <div class="chips" data-f="fCat"><button class="chip" type="button" data-v="" aria-pressed="${!S.fCat}">全部</button>${usedCats.map(c=>`<button class="chip" type="button" data-v="${esc(c)}" aria-pressed="${S.fCat===c}">${catIcon(c)}${esc(c)}</button>`).join("")}</div>
     <div class="row"><div class="chips" data-f="fState">${Object.entries(STATES).map(([k,n])=>`<button class="chip" type="button" data-v="${k}" aria-pressed="${S.fState===k}">${n}</button>`).join("")}</div>
     <select id="fLoc" style="width:auto;flex:1;min-width:9em"><option value="">所有位置</option><option value="_none" ${S.fLoc==="_none"?"selected":""}>待整理</option>${usedLocs.map(l=>`<option value="${esc(l.id)}" ${S.fLoc===l.id?"selected":""}>${esc(l.name)}</option>`).join("")}</select></div>
     ${list.length?`<div class="grid">${list.map(i=>cardHTML(i)).join("")}</div>`:`<div class="empty">没有符合条件的</div>`}
@@ -335,7 +350,7 @@ function homeHTML(){
 
 /* ---------- stock：买之前看一眼已经有几个 ---------- */
 function freshRowHTML(i){
-  return `<div class="stock"><button class="mini" type="button" data-item="${esc(i.id)}" aria-label="看详情">${i.thumb?`<img src="${i.thumb}" alt="">`:"无图"}</button>
+  return `<div class="stock"><button class="mini" type="button" data-item="${esc(i.id)}" aria-label="看详情">${i.thumb?`<img src="${i.thumb}" alt="">`:(catIcon(i.cat)||"无图")}</button>
    <div class="txt"><b>${esc(itemTitle(i))}</b><span class="where">${esc([i.shade,locName(i.loc)].filter(Boolean).join(" · "))}</span></div>
    <div class="stepper">${S.ro?"":`<button type="button" data-step="-1" data-id="${esc(i.id)}" aria-label="减一" ${qtyOf(i)<=1?"disabled":""}>−</button>`}<span class="q">${qtyOf(i)}</span>${S.ro?"":`<button type="button" data-step="1" data-id="${esc(i.id)}" aria-label="加一">＋</button><button class="go" type="button" data-act="open-one" data-id="${esc(i.id)}">开封</button>`}</div></div>`}
 // 存货：不拍照、只记名称和数量的（卫生巾、水、洗衣液…），跟着收纳位置走
@@ -368,7 +383,7 @@ function stockTabHTML(){
   K.cats.forEach(g=>{
     const rows=g.items.map(([c])=>{const its=items.filter(i=>i.cat===c);if(!its.length)return "";
       const fresh=its.filter(i=>!isOpen(i));
-      return `<div class="cat-head"><b>${esc(c)}</b><span class="sub">在用 ${its.length-fresh.length} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)}</span></div>${fresh.map(freshRowHTML).join("")}`}).join("");
+      return `<div class="cat-head"><b>${catIcon(c)} ${esc(c)}</b><span class="sub">在用 ${its.length-fresh.length} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)}</span></div>${fresh.map(freshRowHTML).join("")}`}).join("");
     if(rows)h+=`<section><h2>${esc(g.g)}</h2>${rows}</section>`});
   return h+`</div>`;
 }
@@ -555,7 +570,7 @@ function renderForm(keep){
   openSheet(`<div class="row between"><h2>${edit?"编辑":"录入一"+K.unit}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
    <input type="file" id="file" accept="image/*" hidden>
    <button class="photo-pick" type="button" data-act="pick">${d._preview?`<img src="${d._preview}" alt=""><span class="chg">点击更换照片</span>`:`<span>点这里拍照或选照片<br><span class="sub">${esc(K.photoHint)}</span></span>`}</button>
-   <div class="f">类别 *${K.cats.map(g=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span style="flex:none;width:2.6em;line-height:28px">${esc(g.g)}</span><div class="chips" data-fm="cat">${g.items.map(([c])=>chip(c,c,d.cat===c)).join("")}</div></div>`).join("")}</div>
+   <div class="f">类别 *${K.cats.map(g=>`<span>${esc(g.g)}</span><div class="cats" data-fm="cat">${g.items.map(([c])=>`<button class="chip cat" type="button" data-v="${esc(c)}" aria-pressed="${d.cat===c}">${catIcon(c)}${esc(c)}</button>`).join("")}</div>`).join("")}</div>
    <div class="f">现在是<div class="seg" data-fm="state">${Object.entries(STATES).map(([k,n])=>`<button type="button" data-v="${k}" aria-pressed="${d.state===k}">${n}${k==="new"?"（囤货）":""}</button>`).join("")}</div></div>
    ${open?"":`<label class="f">一样的有几${K.unit}<input type="number" id="fm-qty" value="${esc(d.qty||1)}" min="1" inputmode="numeric"></label>`}
    ${K.expiry?`${open?`<label class="f">哪天开封的<input type="date" id="fm-opened" value="${ymd(d.opened||Date.now())}"></label>`:""}
@@ -615,7 +630,7 @@ function openItem(id){
   openSheet(`<div class="row between"><h2>${esc(itemTitle(i))}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
    <input type="file" id="file-chg" accept="image/*" hidden>
    ${i.thumb?`<img class="big-photo" id="bigph" src="${i.thumb}" alt="">`:""}
-   <dl class="kv"><dt>类别</dt><dd>${esc(i.cat)}</dd>
+   <dl class="kv"><dt>类别</dt><dd>${catIcon(i.cat)} ${esc(i.cat)}</dd>
    ${i.shade?`<dt>${esc(K.shadeLabel)}</dt><dd>${esc(i.shade)}</dd>`:""}
    ${(i.colors||[]).length?`<dt>颜色</dt><dd>${esc(i.colors.join("、"))}</dd>`:""}
    <dt>状态</dt><dd>${gone?"用完于 "+esc(dateText(i.goneAt||0)):open?"在用"+(i.opened?"，"+esc(dateText(i.opened))+" 开封":""):"没开封，囤着 "+qtyOf(i)+" "+K.unit}</dd>

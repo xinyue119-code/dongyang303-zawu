@@ -1,6 +1,6 @@
 {
-  "name": "文具盒",
-  "short_name": "文具盒",
+  "name": "杂物间",
+  "short_name": "杂物间",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

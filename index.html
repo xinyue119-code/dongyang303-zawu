@@ -21,7 +21,7 @@
 <script src="kind.js"></script>
 <script src="icons.js"></script>
 <style>
-/* 和东阳303同一套骨架：手机单列、底部分页、底部弹出面板。只有这一段颜色和 kind.js 跟另一个 app 不一样。 */
+/* 和衣帽间同一套骨架：手机单列、底部分页、底部弹出面板。只有这一段颜色和 kind.js 跟另一个 app 不一样。 */
 :root{
   --bg:#f3f5f2; --surface:#ffffff; --surface-2:#e7ece6; --line:#d3dbd2;
   --fg:#1d2620; --muted:#66736a; --accent:#2c6e5a; --accent-soft:#dcefe7; --on-accent:#ffffff;
@@ -196,7 +196,7 @@ img{max-width:100%}
 
 <script>
 /* 这段脚本在「化妆台」和「杂物间」里一模一样，区别全在 kind.js。改了一边记得把另一边也换掉。
-   数据放在东阳303同一个 Firebase 里：<id>_items / <id>_photos 是自己的，locations 三个 app 共用。
+   数据放在衣帽间同一个 Firebase 里：<id>_items / <id>_photos 是自己的，locations 三个 app 共用。
    kind.js 里 house:true 的那个 app（杂物间）多出地图、清单、存货，收纳位置也在它那里增改。 */
 const K = window.KIND;
 const HOME_URL = "https://xinyue119-code.github.io/dongyang303/";
@@ -213,7 +213,7 @@ const SPOTS = {
   boxes:"进门收纳箱", kotatsu:"こたつ上", shelf3:"三层架", desktop:"桌上小盒", cabinet:"四层柜", rack:"挂衣架",
   bedin:"床下（另一张）", bedwin:"床下（靠窗）", longbox:"床边长箱", water:"水", bedside:"床头柜", smalltable:"小桌下", desk:"书桌下", unplaced:"还没定位置"
 };
-// item（逐件拍衣服）归东阳303管，这里只管另外两种
+// item（逐件拍衣服）归衣帽间管，这里只管另外两种
 const MODES = {list:"记大概", count:"记数量"};
 
 const S = { items:[], locs:[], stock:[], tab:"home", gq:"", fCat:"", fState:"", fLoc:"", loaded:{i:false,l:!LOC,s:!HOUSE},
@@ -234,7 +234,7 @@ const dateText = ms => new Date(ms).toLocaleDateString("zh-CN");
 function addMonths(ms,n){const d=new Date(ms);d.setHours(0,0,0,0);d.setMonth(d.getMonth()+n);return d.getTime()}
 
 // 三个整理 app 互相跳转：首页最上面放另外两个的入口
-const APPS=[["closet","东阳303","衣服和鞋","https://xinyue119-code.github.io/dongyang303/"],["zw","杂物间","杂物和存货","https://xinyue119-code.github.io/dongyang303-zawu/"],["cos","化妆台","化妆品","https://xinyue119-code.github.io/dongyang303-cosme/"]];
+const APPS=[["closet","衣帽间","衣服和鞋","https://xinyue119-code.github.io/dongyang303/"],["zw","杂物间","杂物和存货","https://xinyue119-code.github.io/dongyang303-zawu/"],["cos","化妆台","化妆品","https://xinyue119-code.github.io/dongyang303-cosme/"]];
 const hopsHTML = me => `<nav class="hops" aria-label="另外两个整理 app">${APPS.filter(a=>a[0]!==me).map(([,n,sub,u])=>`<a class="hop" href="${u}"><img src="${u}icon-192.png" alt=""><span><b>${n}</b><span>${sub}</span></span></a>`).join("")}</nav>`;
 const catIcon = (c,size="") => {const d=(window.CAT_ICONS||{})[c];return d?`<span class="ci ${size}" style="--h:${d[0]}" aria-hidden="true"><svg viewBox="0 0 24 24">${d[1]}</svg></span>`:""};
 const locById = id => S.locs.find(l=>l.id===id);
@@ -446,7 +446,7 @@ function mapHTML(){
     <div class="map-wrap">${mapSVG()}</div>
     ${un.length?`<section><h2>还没定位置</h2>${un.map(locRowHTML).join("")}</section>`:""}
     <section><h2>全部收纳位置</h2>${Object.keys(SPOTS).filter(k=>k!=="unplaced").map(k=>{const ls=mine.filter(l=>l.spot===k);return ls.length?`<div class="sub" style="margin-top:4px">${SPOTS[k]}</div>${ls.map(locRowHTML).join("")}`:""}).join("")}
-    <div class="sub">只放衣服和鞋的位置不列在这里，去<a href="${HOME_URL}">东阳303</a>看。</div></section>
+    <div class="sub">只放衣服和鞋的位置不列在这里，去<a href="${HOME_URL}">衣帽间</a>看。</div></section>
   </div>`;
 }
 function locRowHTML(l){const parts=[];
@@ -482,7 +482,7 @@ function openLoc(id){
   const its=activeItems().filter(i=>i.loc===id);
   body+=`<h2 style="font-size:14px">拍了照的</h2>
    ${its.length?`<div class="grid">${its.map(i=>cardHTML(i,{sub:i.cat})).join("")}</div>`:`<div class="empty">这里还没有拍照记录的东西。${S.ro?"":"录入时选这个位置，就会出现在这里。"}</div>`}`;
-  if(hasMode(l,"item"))body+=`<div class="sub">这里放的衣服，去<a href="${HOME_URL}#${esc(id)}">东阳303</a>看。</div>`;
+  if(hasMode(l,"item"))body+=`<div class="sub">这里放的衣服，去<a href="${HOME_URL}#${esc(id)}">衣帽间</a>看。</div>`;
   const how=modesOf(l).filter(m=>MODES[m]).map(m=>MODES[m]).join("+");
   openSheet(`<div class="row between"><div class="row">${l.code?`<span class="code">${esc(l.code)}</span>`:""}<h2>${esc(l.name)}</h2></div><button class="btn" type="button" data-act="close">关闭</button></div>
    <div class="sub">${esc([SPOTS[l.spot],how,l.note].filter(Boolean).join(" · "))}</div>
@@ -501,7 +501,7 @@ function openNewLoc(pre){
    <div class="f">怎么记（可多选）<div class="chips" data-modes>${modeChips(["list"])}</div><span>记大概 = 写一段清单；记数量 = 用 ＋/− 数存货。拍照录入的东西哪个位置都能放。</span></div>
    <label class="f">说明（可不填）<input type="text" id="lc-note"></label>
    <div class="row"><button class="btn primary" type="button" data-act="loc-create">添加</button></div><div class="sub" id="fm-msg"></div>
-   <div class="sub">放衣服的箱子、挂衣区，去<a href="${HOME_URL}">东阳303</a>的「地图」里加。</div>`);
+   <div class="sub">放衣服的箱子、挂衣区，去<a href="${HOME_URL}">衣帽间</a>的「地图」里加。</div>`);
 }
 
 /* ---------- sort ---------- */
@@ -514,7 +514,7 @@ function sortHTML(){
     ${pend.length?`<div class="sub">点选待整理的（已选 ${S.sortSel.size} ${K.unit}）</div><div class="grid">${pend.map(i=>cardHTML(i,{selectable:true,sel:S.sortSel.has(i.id),sub:i.cat})).join("")}</div>
     <div class="row"><button class="btn primary" type="button" data-act="do-sort" ${!S.sortTarget||!S.sortSel.size||S.ro?"disabled":""}>放进去</button><button class="btn" type="button" data-act="sel-all">全选</button><button class="btn" type="button" data-act="sel-none">清空</button></div>`
      :`<div class="empty">没有待整理的${items.length?"，全部都有位置了":""}</div>`}
-    <div class="sub">收纳位置和东阳303共用。要新增或改名，${HOUSE?"在「地图」里改。":`去<a href="${ZAWU_URL}">杂物间</a>的「地图」里改。`}</div>
+    <div class="sub">收纳位置和衣帽间共用。要新增或改名，${HOUSE?"在「地图」里改。":`去<a href="${ZAWU_URL}">杂物间</a>的「地图」里改。`}</div>
   </section>`;
   return h+statsHTML()+accountHTML()+`</div>`;
 }
@@ -747,7 +747,7 @@ document.addEventListener("click",async e=>{
   else if(a==="contents-save"){try{await S.db.doc("locations/"+t.dataset.id).update({contents:$("#lc-contents").value});toast("清单已保存")}catch(_){toast("没保存成功")}}
   else if(a==="loc-save"||a==="loc-create"){
     const l=a==="loc-save"?locById(t.dataset.id):null, say=m=>{const el=$("#fm-msg");el?el.textContent=m:toast(m)};
-    // 衣服那一种（item）是东阳303管的，原来有就原样留着
+    // 衣服那一种（item）是衣帽间管的，原来有就原样留着
     const modes=[...(l&&hasMode(l,"item")?["item"]:[]),...[...document.querySelectorAll('[data-modes] .chip[aria-pressed="true"]')].map(c=>c.dataset.v)];
     if(!modes.length){say("至少选一种记录方式");return}
     const body={name:$("#lc-name").value.trim(),code:$("#lc-code").value.trim().toUpperCase(),spot:$("#lc-spot").value,note:$("#lc-note").value.trim(),modes};
@@ -755,11 +755,11 @@ document.addEventListener("click",async e=>{
     try{if(l)await S.db.doc("locations/"+l.id).update(body);else await S.db.collection("locations").add({...body,kind:"",out:false,fill:"",contents:"",order:Date.now()});
       closeSheet();toast(l?"已保存":"已添加")}catch(_){say("没保存成功，请再试一次")}}
   else if(a==="ldel-ask"){const id=t.dataset.id,l=locById(id);const n=activeItems().filter(i=>i.loc===id).length,ns=S.stock.filter(s=>s.loc===id).length;
-    $("#ldel-zone").innerHTML=`<span class="sub">确定删除吗？${(l.contents||"").trim()?"这里写的清单会删掉。":""}${ns?`这里的 ${ns} 种存货记录也会删掉。`:""}${n?`拍了照的 ${n} ${K.unit}会回到「待整理」。`:""}${hasMode(l,"item")?"这个位置在东阳303里还放着衣服，那边不受影响。":""}</span><button class="btn danger" type="button" data-act="ldel" data-id="${esc(id)}">确定删除</button><button class="btn" type="button" data-act="close">取消</button>`}
+    $("#ldel-zone").innerHTML=`<span class="sub">确定删除吗？${(l.contents||"").trim()?"这里写的清单会删掉。":""}${ns?`这里的 ${ns} 种存货记录也会删掉。`:""}${n?`拍了照的 ${n} ${K.unit}会回到「待整理」。`:""}${hasMode(l,"item")?"这个位置在衣帽间里还放着衣服，那边不受影响。":""}</span><button class="btn danger" type="button" data-act="ldel" data-id="${esc(id)}">确定删除</button><button class="btn" type="button" data-act="close">取消</button>`}
   else if(a==="ldel"){const id=t.dataset.id,l=locById(id);t.disabled=true;
     try{for(const i of activeItems().filter(i=>i.loc===id)){await ref("items",i.id).update({loc:""})}
       for(const s of S.stock.filter(s=>s.loc===id)){await S.db.doc("stock/"+s.id).delete()}
-      // 东阳303还在用这个位置放衣服的话，只把杂物这部分拿掉，位置本身留着
+      // 衣帽间还在用这个位置放衣服的话，只把杂物这部分拿掉，位置本身留着
       if(hasMode(l,"item"))await S.db.doc("locations/"+id).update({modes:["item"],contents:""});else await S.db.doc("locations/"+id).delete();
       closeSheet();toast("已删除")}catch(_){toast("没删除成功")}}
   else if(a==="logout"){firebase.auth().signOut()}
@@ -779,7 +779,7 @@ document.addEventListener("input",e=>{
 function loginHTML(){return `<form class="login" id="login-form" autocomplete="on">
   <img src="icon-512.png" alt="">
   <h1>${esc(K.name)}</h1>
-  <div class="sub">和东阳303用同一个账号</div>
+  <div class="sub">和衣帽间用同一个账号</div>
   <input type="email" id="lg-email" placeholder="邮箱" autocomplete="username" required>
   <input type="password" id="lg-pass" placeholder="密码" autocomplete="current-password" required>
   <button class="btn primary" type="submit" id="lg-btn">登录</button>

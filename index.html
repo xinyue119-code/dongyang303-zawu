@@ -71,6 +71,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .chip.cat{border:1.5px solid transparent;background:none;border-radius:12px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;line-height:1.25;color:var(--fg);text-align:center;overflow-wrap:anywhere}
 .chip.cat .ci{margin:0;width:40px;height:40px}
 .chip.cat[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--fg);font-weight:600}
+.hops{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hop{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--fg);min-width:0}
+.hop img{width:34px;height:34px;border-radius:9px;flex:none}
+.hop b{font-size:14px;display:block;line-height:1.3}
+.hop span span{font-size:11px;color:var(--muted);display:block;line-height:1.3}
 .strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
 .strip .card{flex:0 0 108px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
@@ -204,9 +209,9 @@ const STATES = {open:"在用", new:"没开封"};
 const SEASONS = ["春","夏","秋","冬"];
 const DAY = 86400000;
 const SPOTS = {
-  toilet:"卫生间", shelf:"收纳架", basin:"洗手台下", washer:"洗衣机旁", genkan:"玄关", kitchen:"厨房", cl:"衣柜 CL",
+  toilet:"卫生间", shelf:"收纳架", basin:"洗手台下", washer:"洗衣机旁", genkan:"玄关", kitchen:"厨房", fridge:"冰箱", cl:"衣柜 CL",
   boxes:"进门收纳箱", kotatsu:"こたつ上", shelf3:"三层架", desktop:"桌上小盒", cabinet:"四层柜", rack:"挂衣架",
-  bedin:"床下（另一张）", bedwin:"床下（靠窗）", longbox:"床边长箱", water:"水", bedside:"床头柜", smalltable:"小桌下", desk:"书桌下", pajama:"睡衣筐", unplaced:"还没定位置"
+  bedin:"床下（另一张）", bedwin:"床下（靠窗）", longbox:"床边长箱", water:"水", bedside:"床头柜", smalltable:"小桌下", desk:"书桌下", unplaced:"还没定位置"
 };
 // item（逐件拍衣服）归东阳303管，这里只管另外两种
 const MODES = {list:"记大概", count:"记数量"};
@@ -228,6 +233,9 @@ const fromYmd = s => {const [y,m,d]=s.split("-").map(Number);return new Date(y,m
 const dateText = ms => new Date(ms).toLocaleDateString("zh-CN");
 function addMonths(ms,n){const d=new Date(ms);d.setHours(0,0,0,0);d.setMonth(d.getMonth()+n);return d.getTime()}
 
+// 三个整理 app 互相跳转：首页最上面放另外两个的入口
+const APPS=[["closet","东阳303","衣服和鞋","https://xinyue119-code.github.io/dongyang303/"],["zw","杂物间","杂物和存货","https://xinyue119-code.github.io/dongyang303-zawu/"],["cos","化妆台","化妆品","https://xinyue119-code.github.io/dongyang303-cosme/"]];
+const hopsHTML = me => `<nav class="hops" aria-label="另外两个整理 app">${APPS.filter(a=>a[0]!==me).map(([,n,sub,u])=>`<a class="hop" href="${u}"><img src="${u}icon-192.png" alt=""><span><b>${n}</b><span>${sub}</span></span></a>`).join("")}</nav>`;
 const catIcon = (c,size="") => {const d=(window.CAT_ICONS||{})[c];return d?`<span class="ci ${size}" style="--h:${d[0]}" aria-hidden="true"><svg viewBox="0 0 24 24">${d[1]}</svg></span>`:""};
 const locById = id => S.locs.find(l=>l.id===id);
 const locName = id => { if(!id) return "待整理"; const l=locById(id); return l?l.name:"待整理"; };
@@ -324,6 +332,7 @@ function homeHTML(){
   const open=items.filter(isOpen), fresh=items.filter(i=>!isOpen(i));
   const pending=LOC?items.filter(i=>!i.loc||!locById(i.loc)).length:0;
   let h=`<div class="stack">${header(`在用 ${open.length} ${K.unit} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)} ${K.unit}${HOUSE?` · 存货 ${S.stock.length} 种`:""}`)}
+   ${hopsHTML(K.id)}
    <input class="search big" id="gq" type="search" placeholder="${esc(K.searchHint)}" value="${esc(S.gq)}" autocomplete="off">`;
   if(S.gq.trim())return h+searchHTML(S.gq.trim())+`</div>`;
   if(!items.length)return h+`<div class="empty">${K.emptyHint}</div></div>`;
@@ -404,7 +413,7 @@ function mapSVG(){
    <line class="wall-thin" x1="4" y1="300" x2="290" y2="300"/><line class="wall-thin" x1="380" y1="300" x2="476" y2="300"/>
    <line class="wall-thin" x1="100" y1="4" x2="100" y2="296"/><line class="wall-thin" x1="272" y1="4" x2="272" y2="296"/>
    <rect class="fixed" x="10" y="150" width="84" height="140"/><text class="room-lbl" x="52" y="224" text-anchor="middle">浴室</text>
-   <rect class="fixed" x="400" y="80" width="70" height="56"/><text class="room-lbl" x="435" y="112" text-anchor="middle">冰箱</text>
+   ${zone("fridge",400,80,70,56,"冰箱")}
    <text class="room-lbl" x="190" y="146" text-anchor="middle">洗面所</text>
    ${zone("toilet",10,10,84,76,"卫生间")}
    ${zone("shelf",10,92,84,52,"收纳架")}
@@ -422,12 +431,11 @@ function mapSVG(){
    ${zone("rack",82,476,118,36,"挂衣架")}
    ${zone("bedin",12,520,190,93,"床下·另一张")}
    ${zone("bedwin",12,619,190,93,"床下·靠窗")}
-   ${zone("longbox",208,520,66,98,"长箱×3")}
+   ${zone("longbox",208,520,66,98,"长箱")}
    ${zone("water",208,624,66,56,"水")}
    ${zone("bedside",12,718,60,52,"床头柜")}
    ${zone("smalltable",336,460,134,56,"小桌下")}
    ${zone("desk",336,526,134,150,"书桌下")}
-   ${zone("pajama",336,690,100,52,"睡衣筐")}
    <rect class="fixed" x="4" y="790" width="472" height="62"/><text class="room-lbl" x="240" y="826" text-anchor="middle">阳台</text>
   </svg>`;
 }
@@ -795,6 +803,7 @@ function start(){
     if(!user){render();return}
     S.ro=(user.email||"").toLowerCase()!==String(window.OWNER_EMAIL||"").toLowerCase();
     S.db=db;render();
+    if(!S.ro&&K.migrate)K.migrate(db).catch(e=>console.warn("migrate",e));
     const err=e=>{console.warn(e);toast(e&&e.code==="permission-denied"?"这个账号没有权限查看":"连接中断，刷新页面试试")};
     unsubs.push(col("items").onSnapshot(s=>{S.items=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.i=true;render()},err));
     if(HOUSE)unsubs.push(db.collection("stock").orderBy("created").onSnapshot(s=>{S.stock=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.s=true;render();

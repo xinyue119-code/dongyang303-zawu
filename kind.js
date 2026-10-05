@@ -17,6 +17,22 @@ window.KIND = {
     { g: "生活", items: [["药品"], ["卫生用品"], ["清洁用品"], ["厨房用品"], ["雨具/包袋"]] },
     { g: "其他", items: [["证件/文件"], ["印章/钥匙"], ["工具/五金"], ["纪念品"], ["其他"]] }
   ],
+  // 2026-10-05 的位置调整，主人登录时跑一次（meta 里记了标记，跑过就不再跑）：
+  // 长箱3 改成放杂物（里面登记的衣服回到东阳303的「待整理」）；睡衣筐交给东阳303放衣服；加一个冰箱。
+  migrate: async db => {
+    const flag = db.doc("meta/zawu-20261005");
+    if ((await flag.get()).exists) return;
+    const locs = (await db.collection("locations").get()).docs;
+    const l3 = locs.find(d => d.id === "long3") || locs.find(d => d.data().code === "L3");
+    if (l3) {
+      for (const it of (await db.collection("items").where("loc", "==", l3.id).get()).docs) await it.ref.update({ loc: "" });
+      await l3.ref.update({ modes: ["list"], kind: "", out: false, fill: "" });
+    }
+    const pj = locs.find(d => d.id === "pajama") || locs.find(d => d.data().name === "睡衣筐");
+    if (pj) await pj.ref.update({ modes: ["item"], kind: "box", out: false, fill: "空" });
+    if (!locs.some(d => d.id === "fridge")) await db.doc("locations/fridge").set({ name: "冰箱", code: "", spot: "fridge", modes: ["list"], kind: "", out: false, fill: "", note: "", contents: "", order: Date.now() });
+    await flag.set({ done: Date.now() });
+  },
   searchHint: "找东西：印章、驱蚊、充电线…",
   notePh: "比如：Sarasa 黑 / Type-C 充电线",
   shadeLabel: "规格",

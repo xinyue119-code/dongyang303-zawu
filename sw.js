@@ -1,5 +1,5 @@
 // 杂物间: cache the app shell so it opens fast; data comes from Firestore.
-const CACHE = "zw303-v7";
+const CACHE = "zw303-v8";
 const SHELL = ["./", "index.html", "config.js", "icons.js", "kind.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

@@ -259,7 +259,8 @@ const byId = id => S.items.find(x=>x.id===id);
 const activeItems = () => S.items.filter(i=>i.status!=="gone");
 const isOpen = i => i.state!=="new";
 const qtyOf = i => isOpen(i)?1:Math.max(1,+i.qty||1);
-const itemTitle = i => i.note || i.cat;
+const itemTitle = i => [i.brand,i.note].filter(Boolean).join(" ") || i.cat;
+const brandsUsed = () => [...new Set(S.items.map(i=>i.brand).filter(Boolean))].sort();
 const lastUse = i => i.lastUsed || i.opened || i.created || 0;
 const idleDays = i => Math.floor((Date.now()-lastUse(i))/DAY);
 // 到期日：包装上的期限、开封日＋开封后能用几个月，哪个早算哪个
@@ -314,7 +315,7 @@ function render(){
 function rerenderKeepFocus(id){const el=document.getElementById(id);const pos=el?el.selectionStart:null;render();const n=document.getElementById(id);if(n&&pos!=null){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}
 
 /* ---------- search ---------- */
-const hay = i => [i.note,i.shade,i.cat,(i.colors||[]).join(" "),LOC?locName(i.loc):"",STATES[isOpen(i)?"open":"new"]].join(" ").toLowerCase();
+const hay = i => [i.note,i.brand,i.shade,i.cat,(i.colors||[]).join(" "),LOC?locName(i.loc):"",STATES[isOpen(i)?"open":"new"]].join(" ").toLowerCase();
 function hl(text,q){const t=esc(text);if(!q)return t;const qe=esc(q).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");return t.replace(new RegExp(qe,"gi"),m=>`<mark>${m}</mark>`)}
 function snippet(text,q){const ql=q.toLowerCase();const ln=text.split(/\n/).find(x=>x.toLowerCase().includes(ql));
   if(!ln)return text.slice(0,60);const at=ln.toLowerCase().indexOf(ql);return ln.length>80?ln.slice(Math.max(0,at-30),at+50):ln}
@@ -586,6 +587,7 @@ function openForm(item){
 // 把输入框里已经填的东西收回 draft，重画表单时才不会丢
 function readForm(){const d=draft,v=id=>{const el=document.getElementById(id);return el?el.value:null};let x;
   if((x=v("fm-note"))!=null)d.note=x.trim();
+  if((x=v("fm-brand"))!=null)d.brand=x.trim();
   if((x=v("fm-shade"))!=null)d.shade=x.trim();
   if((x=v("fm-loc"))!=null)d.loc=x;
   if((x=v("fm-qty"))!=null)d.qty=Math.max(1,parseInt(x,10)||1);
@@ -604,6 +606,8 @@ function renderForm(keep){
    ${K.expiry?`${open?`<label class="f">哪天开封的<input type="date" id="fm-opened" value="${ymd(d.opened||Date.now())}"></label>`:""}
     ${K.paoOpts.length?`<div class="f">开封后能用多久（瓶身上那个小罐子图标）<div class="chips" data-fm="pao">${K.paoOpts.map(m=>chip(m,m+" 个月",+d.pao===m)).join("")}${chip(0,"不算",!+d.pao)}</div></div>`:""}
     <label class="f">${esc(K.expLabel||"包装上印的期限")}（可不填）<input type="date" id="fm-exp" value="${esc(d.exp||"")}"></label>`:""}
+   ${K.brand?`<label class="f">品牌（可不填，填过的会出现在候选里）<input type="text" id="fm-brand" list="brand-list" placeholder="${esc(K.brandPh||"")}" value="${esc(d.brand||"")}" autocomplete="off"></label>
+   <datalist id="brand-list">${brandsUsed().map(b=>`<option value="${esc(b)}"></option>`).join("")}</datalist>`:""}
    <label class="f">名称（可不填）<input type="text" id="fm-note" placeholder="${esc(K.notePh)}" value="${esc(d.note||"")}"></label>
    <label class="f">${esc(K.shadeLabel)}（可不填）<input type="text" id="fm-shade" placeholder="${esc(K.shadePh)}" value="${esc(d.shade||"")}"></label>
    ${K.colors?`<div class="f">颜色（可不填）<div class="chips" data-fm="colors">${K.colors.map(c=>chip(c,c,d.colors.includes(c))).join("")}</div></div>`:""}
@@ -632,7 +636,7 @@ async function saveDraft(next){
   try{
     let thumb=d.thumb||"", full=null;
     if(d._file){thumb=await toJpeg(d._file,260,[.72,.6]);full=await toJpeg(d._file,900,[.75,.62,.5,.4]);}
-    const body={cat:d.cat,state:d.state,note:d.note,shade:d.shade,colors:d.colors,loc:d.loc,qty:open?1:d.qty,opened:open?(d.opened||Date.now()):0,
+    const body={cat:d.cat,state:d.state,note:d.note,brand:d.brand||"",shade:d.shade,colors:d.colors,loc:d.loc,qty:open?1:d.qty,opened:open?(d.opened||Date.now()):0,
       thumb,status:"active",hasPhoto:!!(full||d.hasPhoto)};
     if(K.expiry){body.pao=+d.pao||0;body.exp=d.exp||""}
     let id=d.id;
@@ -659,6 +663,7 @@ function openItem(id){
    <input type="file" id="file-chg" accept="image/*" hidden>
    ${i.thumb?`<img class="big-photo" id="bigph" src="${i.thumb}" alt="">`:""}
    <dl class="kv"><dt>类别</dt><dd>${catIcon(i.cat)} ${esc(i.cat)}</dd>
+   ${i.brand?`<dt>品牌</dt><dd>${esc(i.brand)}</dd>`:""}
    ${i.shade?`<dt>${esc(K.shadeLabel)}</dt><dd>${esc(i.shade)}</dd>`:""}
    ${(i.colors||[]).length?`<dt>颜色</dt><dd>${esc(i.colors.join("、"))}</dd>`:""}
    <dt>状态</dt><dd>${gone?"用完于 "+esc(dateText(i.goneAt||0)):open?"在用"+(i.opened?"，"+esc(dateText(i.opened))+" 开封":""):"没开封，囤着 "+qtyOf(i)+" "+K.unit}</dd>

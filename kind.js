@@ -33,8 +33,10 @@ window.KIND = {
     if (!locs.some(d => d.id === "fridge")) await db.doc("locations/fridge").set({ name: "冰箱", code: "", spot: "fridge", modes: ["list"], kind: "", out: false, fill: "", note: "", contents: "", order: Date.now() });
     await flag.set({ done: Date.now() });
   },
+  brand: true,               // 录入时多一栏品牌，能按品牌搜
+  brandPh: "比如：无印良品 / 百乐 / Anker",
   searchHint: "找东西：印章、驱蚊、充电线…",
-  notePh: "比如：Sarasa 黑 / Type-C 充电线",
+  notePh: "比如：黑色中性笔 / Type-C 充电线",
   shadeLabel: "规格",
   shadePh: "比如：0.38 / B5 方格 / 1m",
   photoHint: "同一种的拍一张就行，数量在下面填",

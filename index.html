@@ -42,7 +42,11 @@
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55;-webkit-tap-highlight-color:transparent}
 main{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:18px 120px}
 h1{font-size:22px;margin:0;letter-spacing:.02em}
-h2{font-size:16px;margin:0;text-wrap:balance}
+h2{font-size:16px;margin:0;text-wrap:balance;min-width:0;overflow-wrap:anywhere}
+.panel,.sheet,.empty,.notice{overflow-wrap:anywhere}
+.panel>*,.sheet>*{min-width:0}
+.row.between>*{min-width:0}
+.row.between>.btn,.row.between>button{flex:none}
 .sub{color:var(--muted);font-size:13px}
 .sub a{color:var(--accent)}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -71,7 +75,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .chip.cat{border:1.5px solid transparent;background:none;border-radius:12px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;line-height:1.25;color:var(--fg);text-align:center;overflow-wrap:anywhere}
 .chip.cat .ci{margin:0;width:40px;height:40px}
 .chip.cat[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--fg);font-weight:600}
-.hops{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hops{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
 .hop{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--fg);min-width:0}
 .hop img{width:34px;height:34px;border-radius:9px;flex:none}
 .hop b{font-size:14px;display:block;line-height:1.3}
@@ -111,7 +115,7 @@ label.f,.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(-
 .photo-pick img{width:100%;height:100%;object-fit:contain}
 .photo-pick .chg{position:absolute;right:8px;bottom:8px;background:rgba(10,14,25,.6);color:#fff;font-size:12px;padding:4px 10px;border-radius:999px}
 .big-photo{width:100%;max-height:52vh;object-fit:contain;border-radius:var(--r);background:var(--surface-2);aspect-ratio:4/3}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;margin:0}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:14px;margin:0}
 .kv dt{color:var(--muted)}.kv dd{margin:0;min-width:0}
 .late{color:var(--tag)}.soon{color:var(--warn)}
 .bar-row{display:grid;grid-template-columns:7em 1fr 6.5em;gap:8px;align-items:center;font-size:13px;font-variant-numeric:tabular-nums}
@@ -133,7 +137,7 @@ label.f,.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(-
 .seg button[aria-pressed="true"]{background:var(--surface);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .cat-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px}
 .cat-head b{font-size:14px}
-.stock{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.stock{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
 .stock .mini{width:42px;height:42px;border-radius:8px;border:0;padding:0;overflow:hidden;background:var(--surface-2);color:var(--muted);font-size:10px}
 .stock .mini .ci{width:100%;height:100%;border-radius:0}
 .stock .mini img{width:100%;height:100%;object-fit:cover;display:block}
@@ -143,7 +147,9 @@ label.f,.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(-
 .stepper{display:flex;align-items:center;gap:4px}
 .stepper button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);font-size:18px;font-weight:700;line-height:1}
 .stepper .go{width:auto;height:30px;border-radius:999px;background:none;border:1px solid var(--accent);color:var(--accent);font-size:12px;font-weight:600;padding:0 10px;margin-left:4px}
-.stock.two{grid-template-columns:1fr auto}
+.stock.two{grid-template-columns:minmax(0,1fr) auto}
+.stock .inner{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px dashed var(--line);padding-top:6px;font-size:13px;color:var(--muted)}
+.btn.sm{padding:4px 10px;font-size:12px}
 .stepper .del{width:auto;height:28px;border-radius:999px;background:none;border:1px solid var(--tag);color:var(--tag);font-size:12px;font-weight:400;padding:0 10px;margin-left:4px}
 .stepper .q small{font-family:var(--f-body);font-weight:400;font-size:12px;color:var(--muted)}
 .map-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px}
@@ -171,6 +177,10 @@ mark{background:color-mix(in srgb,var(--warn) 35%,transparent);color:inherit;bor
 .stepper .q{min-width:2em;text-align:center;font-family:var(--f-code);font-weight:600;font-size:17px;font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
 html{padding-top:env(safe-area-inset-top,0px)}
+html,body{max-width:100%;overflow-x:hidden}
+/* iPhone 上输入框的字小于 16px 时，点进去 Safari 会自动放大整页，画面就超出去了 */
+select,input,textarea{font-size:16px}
+input[type=date]{min-width:0;max-width:100%}
 body{margin:0}
 img{max-width:100%}
 [hidden]{display:none!important}
@@ -365,16 +375,22 @@ function freshRowHTML(i){
    <div class="stepper">${S.ro?"":`<button type="button" data-step="-1" data-id="${esc(i.id)}" aria-label="减一" ${qtyOf(i)<=1?"disabled":""}>−</button>`}<span class="q">${qtyOf(i)}</span>${S.ro?"":`<button type="button" data-step="1" data-id="${esc(i.id)}" aria-label="加一">＋</button><button class="go" type="button" data-act="open-one" data-id="${esc(i.id)}">开封</button>`}</div></div>`}
 // 存货：不拍照、只记名称和数量的（卫生巾、水、洗衣液…），跟着收纳位置走
 function stockInner(s){
+  const step=(k,q,u)=>`<div class="stepper">${S.ro?"":`<button type="button" data-sstep="-1" data-k="${k}" data-id="${esc(s.id)}" aria-label="减一">−</button>`}<span class="q">${esc(q)}<small>${esc(u||"")}</small></span>${S.ro?"":`<button type="button" data-sstep="1" data-k="${k}" data-id="${esc(s.id)}" aria-label="加一">＋</button>`}</div>`;
   return `<div class="txt"><b>${esc(s.name)}</b><span class="where">${esc(locName(s.loc))}</span></div>
-   <div class="stepper">${S.ro?"":`<button type="button" data-sstep="-1" data-id="${esc(s.id)}" aria-label="减一">−</button>`}<span class="q">${esc(s.qty)}<small>${esc(s.unit||"")}</small></span>${S.ro?"":`<button type="button" data-sstep="1" data-id="${esc(s.id)}" aria-label="加一">＋</button><button class="del" type="button" data-act="stock-del-ask" data-id="${esc(s.id)}" aria-label="删除这种存货">删除</button>`}</div>`}
+   <div class="row" style="flex-wrap:nowrap;gap:4px">${step("qty",s.qty,s.unit)}${S.ro?"":`<button class="btn sm" type="button" data-act="stock-edit" data-id="${esc(s.id)}">编辑</button>`}</div>
+   ${s.subUnit?`<div class="inner"><span>里面还有</span>${step("subQty",s.subQty||0,s.subUnit)}</div>`:""}`}
 function stockRowHTML(s){return `<div class="stock two" id="stock-${esc(s.id)}">${stockInner(s)}</div>`}
-function openNewStock(locId){
-  openSheet(`<div class="row between"><h2>加一种存货</h2><button class="btn" type="button" data-act="close">关闭</button></div>
-   <div class="sub">放在：${esc(locName(locId))}</div>
-   <label class="f">名称<input type="text" id="st-name" placeholder="比如：矿泉水 2L / 卫生巾 日用"></label>
-   <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">现在有几个<input type="number" id="st-qty" value="1" min="0" inputmode="numeric"></label>
-   <label class="f" style="flex:1">单位<input type="text" id="st-unit" value="个" placeholder="包 / 瓶 / 箱"></label></div>
-   <div class="row"><button class="btn primary" type="button" data-act="stock-create" data-loc="${esc(locId)}">添加</button></div><div class="sub" id="fm-msg"></div>`);
+// 新增和修改共用一张表。「里面还有」是第二个数：比如水记 2 箱，再记开着的那箱里还剩几罐
+function openStockForm(locId,s){
+  openSheet(`<div class="row between"><h2>${s?"修改存货":"加一种存货"}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
+   <div class="sub">放在：${esc(locName(s?s.loc:locId))}</div>
+   <label class="f">名称<input type="text" id="st-name" placeholder="比如：矿泉水 2L / 卫生巾 日用" value="${esc(s?s.name:"")}"></label>
+   <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1;min-width:0">现在有几个<input type="number" id="st-qty" value="${esc(s?s.qty:1)}" min="0" inputmode="numeric"></label>
+   <label class="f" style="flex:1;min-width:0">单位<input type="text" id="st-unit" value="${esc(s?s.unit||"":"个")}" placeholder="包 / 瓶 / 箱"></label></div>
+   <div class="f">里面还有多少（可不填）<span>比如水按箱记，想再记开着的那箱里还剩几罐，就在这里填数量和「罐」。</span>
+   <div class="row" style="flex-wrap:nowrap"><input type="number" id="st-sub" style="flex:1;min-width:0" value="${esc(s&&s.subUnit?s.subQty||0:"")}" min="0" inputmode="numeric" placeholder="数量"><input type="text" id="st-subunit" style="flex:1;min-width:0" value="${esc(s&&s.subUnit||"")}" placeholder="单位：罐 / 瓶 / 片"></div></div>
+   <div class="row"><button class="btn primary" type="button" data-act="stock-save" data-loc="${esc(locId||"")}" data-id="${esc(s?s.id:"")}">${s?"保存":"添加"}</button></div><div class="sub" id="fm-msg"></div>
+   ${s?`<div class="row" id="sdel-zone"><button class="btn danger" type="button" data-act="stock-del-ask" data-id="${esc(s.id)}">删除这种存货</button></div>`:""}`);
 }
 function stockTabHTML(){
   const items=activeItems();
@@ -451,7 +467,7 @@ function mapHTML(){
 }
 function locRowHTML(l){const parts=[];
   const n=activeItems().filter(i=>i.loc===l.id).length;if(n)parts.push(`${n} ${K.unit}`);
-  if(hasMode(l,"count")){const st=S.stock.filter(s=>s.loc===l.id);parts.push(st.length?st.map(s=>`${s.name} ${s.qty}${s.unit||""}`).join("、"):"还没记存货")}
+  if(hasMode(l,"count")){const st=S.stock.filter(s=>s.loc===l.id);parts.push(st.length?st.map(s=>`${s.name} ${s.qty}${s.unit||""}${s.subUnit?`＋${s.subQty||0}${s.subUnit}`:""}`).join("、"):"还没记存货")}
   if(hasMode(l,"list")){const c=(l.contents||"").trim();parts.push(c?c.replace(/\n+/g,"、").slice(0,40):"还没写清单")}
   if(l.note)parts.push(l.note);
   const badge=modesOf(l).filter(m=>MODES[m]).map(m=>MODES[m]).join("+");
@@ -694,7 +710,8 @@ document.addEventListener("click",async e=>{
   if(t.dataset.loc&&!t.dataset.act){openLoc(t.dataset.loc);return}
   if(t.dataset.spot){openSpot(t.dataset.spot);return}
   if(t.dataset.sstep){const s=S.stock.find(x=>x.id===t.dataset.id);if(!s)return;
-    try{await S.db.doc("stock/"+s.id).update({qty:Math.max(0,(+s.qty||0)+(+t.dataset.sstep))})}catch(_){toast("没保存成功")}
+    const k=t.dataset.k==="subQty"?"subQty":"qty";
+    try{await S.db.doc("stock/"+s.id).update({[k]:Math.max(0,(+s[k]||0)+(+t.dataset.sstep))})}catch(_){toast("没保存成功")}
     return}
   if(t.dataset.item&&!t.dataset.pick){openItem(t.dataset.item);return}
   if(t.dataset.item&&t.dataset.pick){const id=t.dataset.item;S.sortSel.has(id)?S.sortSel.delete(id):S.sortSel.add(id);render();return}
@@ -735,15 +752,16 @@ document.addEventListener("click",async e=>{
     S.sortSel.clear();toast(`已放进 ${locName(to)}：${ok} ${K.unit}`);render()}
   else if(a==="rv-skip"){const i=byId(t.dataset.id);S.items=S.items.filter(x=>x!==i).concat([i]);render()}
   else if(a==="new-loc")openNewLoc(t.dataset.spotPre||"");
-  else if(a==="new-stock")openNewStock(t.dataset.loc);
-  else if(a==="stock-create"){const name=$("#st-name").value.trim();if(!name){$("#fm-msg").textContent="请填名称";return}
-    const body={name,loc:t.dataset.loc,qty:Math.max(0,parseInt($("#st-qty").value,10)||0),unit:$("#st-unit").value.trim(),created:Date.now()};
-    try{await S.db.collection("stock").add(body);closeSheet();toast("已添加")}catch(_){$("#fm-msg").textContent="没保存成功，请再试一次"}}
-  else if(a==="stock-del-ask"){const s=S.stock.find(x=>x.id===t.dataset.id);const el=document.getElementById("stock-"+t.dataset.id);if(!s||!el)return;
-    el.innerHTML=`<span class="sub">删除「${esc(s.name)}」？</span><div class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn danger" type="button" data-act="stock-del" data-id="${esc(s.id)}">确定删除</button><button class="btn" type="button" data-act="stock-del-cancel" data-id="${esc(s.id)}">取消</button></div>`}
-  else if(a==="stock-del-cancel"){const s=S.stock.find(x=>x.id===t.dataset.id);const el=document.getElementById("stock-"+t.dataset.id);if(s&&el)el.innerHTML=stockInner(s)}
-  else if(a==="stock-del"){const id=t.dataset.id;t.disabled=true;try{await S.db.doc("stock/"+id).delete();toast("已删除")}
-    catch(_){toast("没删除成功");const s=S.stock.find(x=>x.id===id);const el=document.getElementById("stock-"+id);if(s&&el)el.innerHTML=stockInner(s)}}
+  else if(a==="new-stock")openStockForm(t.dataset.loc,null);
+  else if(a==="stock-edit")openStockForm("",S.stock.find(x=>x.id===t.dataset.id));
+  else if(a==="stock-save"){const name=$("#st-name").value.trim();if(!name){$("#fm-msg").textContent="请填名称";return}
+    const sub=$("#st-sub").value.trim(),subUnit=$("#st-subunit").value.trim()||(sub?"个":"");
+    const body={name,qty:Math.max(0,parseInt($("#st-qty").value,10)||0),unit:$("#st-unit").value.trim(),subUnit,subQty:subUnit?Math.max(0,parseInt(sub,10)||0):0};
+    try{if(t.dataset.id)await S.db.doc("stock/"+t.dataset.id).update(body);else await S.db.collection("stock").add({...body,loc:t.dataset.loc,created:Date.now()});
+      closeSheet();toast(t.dataset.id?"已保存":"已添加")}catch(_){$("#fm-msg").textContent="没保存成功，请再试一次"}}
+  else if(a==="stock-del-ask"){const s=S.stock.find(x=>x.id===t.dataset.id);if(!s)return;
+    $("#sdel-zone").innerHTML=`<span class="sub">删除「${esc(s.name)}」？</span><button class="btn danger" type="button" data-act="stock-del" data-id="${esc(s.id)}">确定删除</button><button class="btn" type="button" data-act="close">取消</button>`}
+  else if(a==="stock-del"){t.disabled=true;try{await S.db.doc("stock/"+t.dataset.id).delete();closeSheet();toast("已删除")}catch(_){t.disabled=false;toast("没删除成功")}}
   else if(a==="contents-save"){try{await S.db.doc("locations/"+t.dataset.id).update({contents:$("#lc-contents").value});toast("清单已保存")}catch(_){toast("没保存成功")}}
   else if(a==="loc-save"||a==="loc-create"){
     const l=a==="loc-save"?locById(t.dataset.id):null, say=m=>{const el=$("#fm-msg");el?el.textContent=m:toast(m)};

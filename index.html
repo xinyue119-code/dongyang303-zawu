@@ -260,7 +260,13 @@ const activeItems = () => S.items.filter(i=>i.status!=="gone");
 const isOpen = i => i.state!=="new";
 const qtyOf = i => isOpen(i)?1:Math.max(1,+i.qty||1);
 const itemTitle = i => [i.brand,i.note].filter(Boolean).join(" ") || i.cat;
-const brandsUsed = () => [...new Set(S.items.map(i=>i.brand).filter(Boolean))].sort();
+// 品牌：不分大小写算同一个，用得最多的写法当标准写法，按使用次数排
+function brandStats(){const m=new Map();
+  for(const i of S.items){const b=(i.brand||"").trim();if(!b)continue;const k=b.toLowerCase();const e=m.get(k)||{n:0,forms:{}};e.n++;e.forms[b]=(e.forms[b]||0)+1;m.set(k,e)}
+  return [...m.values()].map(e=>({name:Object.entries(e.forms).sort((a,b)=>b[1]-a[1])[0][0],n:e.n})).sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name))}
+const brandsUsed = () => brandStats().map(x=>x.name);
+const normBrand = b => {b=(b||"").trim().replace(/\s+/g," ");if(!b)return "";const hit=brandsUsed().find(x=>x.toLowerCase()===b.toLowerCase());return hit||b};
+const brandChips = cur => {const bs=brandsUsed().slice(0,16);return bs.length?`<div class="chips">${bs.map(b=>`<button class="chip" type="button" data-act="brand-pick" data-v="${esc(b)}" aria-pressed="${(cur||"").toLowerCase()===b.toLowerCase()}">${esc(b)}</button>`).join("")}</div>`:""};
 const lastUse = i => i.lastUsed || i.opened || i.created || 0;
 const idleDays = i => Math.floor((Date.now()-lastUse(i))/DAY);
 // 到期日：包装上的期限、开封日＋开封后能用几个月，哪个早算哪个
@@ -595,7 +601,7 @@ function openForm(item){
 // 把输入框里已经填的东西收回 draft，重画表单时才不会丢
 function readForm(){const d=draft,v=id=>{const el=document.getElementById(id);return el?el.value:null};let x;
   if((x=v("fm-note"))!=null)d.note=x.trim();
-  if((x=v("fm-brand"))!=null)d.brand=x.trim();
+  if((x=v("fm-brand"))!=null)d.brand=x;
   if((x=v("fm-shade"))!=null)d.shade=x.trim();
   if((x=v("fm-loc"))!=null)d.loc=x;
   if((x=v("fm-qty"))!=null)d.qty=Math.max(1,parseInt(x,10)||1);
@@ -614,8 +620,7 @@ function renderForm(keep){
    ${K.expiry?`${open?`<label class="f">哪天开封的<input type="date" id="fm-opened" value="${ymd(d.opened||Date.now())}"></label>`:""}
     ${K.paoOpts.length?`<div class="f">开封后能用多久（瓶身上那个小罐子图标）<div class="chips" data-fm="pao">${K.paoOpts.map(m=>chip(m,m+" 个月",+d.pao===m)).join("")}${chip(0,"不算",!+d.pao)}</div></div>`:""}
     <label class="f">${esc(K.expLabel||"包装上印的期限")}（可不填）<input type="date" id="fm-exp" value="${esc(d.exp||"")}"></label>`:""}
-   ${K.brand?`<label class="f">品牌（可不填，填过的会出现在候选里）<input type="text" id="fm-brand" list="brand-list" placeholder="${esc(K.brandPh||"")}" value="${esc(d.brand||"")}" autocomplete="off"></label>
-   <datalist id="brand-list">${brandsUsed().map(b=>`<option value="${esc(b)}"></option>`).join("")}</datalist>`:""}
+   ${K.brand?`<div class="f">品牌（可不填，点下面的直接填入）<input type="text" id="fm-brand" placeholder="${esc(K.brandPh||"")}" value="${esc(d.brand||"")}" autocomplete="off">${brandChips(d.brand)}</div>`:""}
    <label class="f">名称（可不填）<input type="text" id="fm-note" placeholder="${esc(K.notePh)}" value="${esc(d.note||"")}"></label>
    <label class="f">${esc(K.shadeLabel)}（可不填）<input type="text" id="fm-shade" placeholder="${esc(K.shadePh)}" value="${esc(d.shade||"")}"></label>
    ${K.colors?`<div class="f">颜色（可不填）<div class="chips" data-fm="colors">${K.colors.map(c=>chip(c,c,d.colors.includes(c))).join("")}</div></div>`:""}
@@ -644,7 +649,7 @@ async function saveDraft(next){
   try{
     let thumb=d.thumb||"", full=null;
     if(d._file){thumb=await toJpeg(d._file,260,[.72,.6]);full=await toJpeg(d._file,900,[.75,.62,.5,.4]);}
-    const body={cat:d.cat,state:d.state,note:d.note,brand:d.brand||"",shade:d.shade,colors:d.colors,loc:d.loc,qty:open?1:d.qty,opened:open?(d.opened||Date.now()):0,
+    const body={cat:d.cat,state:d.state,note:d.note,brand:normBrand(d.brand),shade:d.shade,colors:d.colors,loc:d.loc,qty:open?1:d.qty,opened:open?(d.opened||Date.now()):0,
       thumb,status:"active",hasPhoto:!!(full||d.hasPhoto)};
     if(K.expiry){body.pao=+d.pao||0;body.exp=d.exp||""}
     let id=d.id;
@@ -793,6 +798,7 @@ document.addEventListener("click",async e=>{
       // 衣帽间还在用这个位置放衣服的话，只把杂物这部分拿掉，位置本身留着
       if(hasMode(l,"item"))await S.db.doc("locations/"+id).update({modes:["item"],contents:""});else await S.db.doc("locations/"+id).delete();
       closeSheet();toast("已删除")}catch(_){toast("没删除成功")}}
+  else if(a==="brand-pick"){const inp=$("#fm-brand");if(inp)inp.value=t.dataset.v;t.parentElement.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",String(c===t)));if(typeof checkDup==="function")checkDup()}
   else if(a==="logout"){firebase.auth().signOut()}
 });
 document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.dataset&&e.target.dataset.spot){e.preventDefault();openSpot(e.target.dataset.spot)}});

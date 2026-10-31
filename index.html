@@ -841,7 +841,8 @@ function start(){
   firebase.auth().onAuthStateChanged(user=>{
     unsubs.forEach(u=>u());unsubs=[];S.user=user;S.authReady=true;S.db=null;S.loaded={i:false,l:!LOC,s:!HOUSE};
     if(!user){render();return}
-    S.ro=(user.email||"").toLowerCase()!==String(window.OWNER_EMAIL||"").toLowerCase();
+    const editors=(window.EDITOR_EMAILS||[window.OWNER_EMAIL]).map(x=>String(x||"").toLowerCase());
+    S.ro=!editors.includes((user.email||"").toLowerCase());
     S.db=db;render();
     if(!S.ro&&K.migrate)K.migrate(db).catch(e=>console.warn("migrate",e));
     const err=e=>{console.warn(e);toast(e&&e.code==="permission-denied"?"这个账号没有权限查看":"连接中断，刷新页面试试")};

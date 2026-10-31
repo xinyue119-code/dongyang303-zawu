@@ -293,7 +293,7 @@ const ICONS={
 const TABS=(HOUSE?[["home","首页"],["map","地图"],["stock","存货"],["sort","整理"],["review","盘点"]]:[["home","首页"],["stock","囤货"],["sort","整理"],["review","盘点"]]).filter(t=>LOC||t[0]!=="sort");
 const TAB_KEY="tab-"+K.id;
 function renderTabs(){$("#tabs").innerHTML=TABS.map(([k,n])=>`<button type="button" data-tab="${k}" ${S.tab===k?'aria-current="page"':""}>${ICONS[k]}${n}</button>`).join("")}
-$("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;S.tab=b.dataset.tab;try{localStorage.setItem(TAB_KEY,S.tab)}catch(_){}render();window.scrollTo(0,0)});
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;S.tab=b.dataset.tab;try{localStorage.setItem(TAB_KEY,S.tab)}catch(_){}$("#app").style.minHeight="";render();window.scrollTo(0,0)});
 
 /* ---------- main render ---------- */
 function header(sub){return `<div class="row between"><div class="brand"><img class="logo" src="icon-192.png" alt=""><div><h1>${esc(K.name)}</h1><div class="sub">${sub}</div></div></div>${S.ro?'<span class="ro-pill">只读</span>':""}</div>`}
@@ -306,13 +306,15 @@ function render(){
   if(!S.user){$("#fab").hidden=true;app.innerHTML=loginHTML();return}
   if(!S.db)return;
   if(!(S.loaded.i&&S.loaded.l&&S.loaded.s))return;
+  if(S.tab==="home"&&document.activeElement&&document.activeElement.id==="gq"&&$("#home-body")){if(!S.composing)updateHomeBody();return}
+  const y=scrollY;
   if(S.tab==="home")app.innerHTML=homeHTML();
   else if(S.tab==="map")app.innerHTML=mapHTML();
   else if(S.tab==="stock")app.innerHTML=stockTabHTML();
   else if(S.tab==="sort")app.innerHTML=sortHTML();
   else app.innerHTML=reviewHTML();
+  if(scrollY!==y)scrollTo(0,y);
 }
-function rerenderKeepFocus(id){const el=document.getElementById(id);const pos=el?el.selectionStart:null;render();const n=document.getElementById(id);if(n&&pos!=null){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}
 
 /* ---------- search ---------- */
 const hay = i => [i.note,i.brand,i.shade,i.cat,(i.colors||[]).join(" "),LOC?locName(i.loc):"",STATES[isOpen(i)?"open":"new"]].join(" ").toLowerCase();
@@ -338,15 +340,16 @@ function searchHTML(q){
 }
 
 /* ---------- home ---------- */
-function homeHTML(){
+function homeParts(){
   const items=activeItems();
   const open=items.filter(isOpen), fresh=items.filter(i=>!isOpen(i));
   const pending=LOC?items.filter(i=>!i.loc||!locById(i.loc)).length:0;
-  let h=`<div class="stack">${header(`在用 ${open.length} ${K.unit} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)} ${K.unit}${HOUSE?` · 存货 ${S.stock.length} 种`:""}`)}
+  const top=`${header(`在用 ${open.length} ${K.unit} · 囤货 ${fresh.reduce((s,i)=>s+qtyOf(i),0)} ${K.unit}${HOUSE?` · 存货 ${S.stock.length} 种`:""}`)}
    ${hopsHTML(K.id)}
    <input class="search big" id="gq" type="search" placeholder="${esc(K.searchHint)}" value="${esc(S.gq)}" autocomplete="off">`;
-  if(S.gq.trim())return h+searchHTML(S.gq.trim())+`</div>`;
-  if(!items.length)return h+`<div class="empty">${K.emptyHint}</div></div>`;
+  let h="";
+  if(S.gq.trim())return {top,body:searchHTML(S.gq.trim())};
+  if(!items.length)return {top,body:`<div class="empty">${K.emptyHint}</div>`};
   const strip=(t,sub,arr,subFn)=>`<section><div class="row between"><h2>${t}</h2><span class="sub">${arr.length} ${K.unit}</span></div>${sub?`<div class="sub">${sub}</div>`:""}
     ${arr.length?`<div class="strip">${arr.slice(0,20).map(i=>cardHTML(i,subFn?{sub:subFn(i)}:{})).join("")}</div>`:`<div class="empty">暂时没有</div>`}</section>`;
   if(K.expiry){const due=items.filter(i=>{const n=daysLeft(i);return n!=null&&n<=30}).sort((a,b)=>daysLeft(a)-daysLeft(b));
@@ -365,9 +368,14 @@ function homeHTML(){
     <div class="row"><div class="chips" data-f="fState">${Object.entries(STATES).map(([k,n])=>`<button class="chip" type="button" data-v="${k}" aria-pressed="${S.fState===k}">${n}</button>`).join("")}</div>
     ${LOC?`<select id="fLoc" style="width:auto;flex:1;min-width:9em"><option value="">所有位置</option><option value="_none" ${S.fLoc==="_none"?"selected":""}>待整理</option>${usedLocs.map(l=>`<option value="${esc(l.id)}" ${S.fLoc===l.id?"selected":""}>${esc(l.name)}</option>`).join("")}</select>`:""}</div>
     ${list.length?`<div class="grid">${list.map(i=>cardHTML(i)).join("")}</div>`:`<div class="empty">没有符合条件的</div>`}
-  </section></div>`;
-  return h;
+  </section>`;
+  return {top,body:h};
 }
+function homeHTML(){const p=homeParts();return `<div class="stack">${p.top}<div class="stack" id="home-body">${p.body}</div></div>`}
+// 搜索框打字时只换下面的结果，输入框本身不重画：拼音输入法的候选框才不会被打断
+function updateHomeBody(){const b=$("#home-body");if(!b){render();return}b.innerHTML=homeParts().body}
+// 点筛选、勾选这类操作后重画页面：先把页面高度撑住，再回到原来的滚动位置，内容变短时也不会被甩到底
+function renderKeep(){const app=$("#app"),y=scrollY;app.style.minHeight=app.offsetHeight+"px";render();if(scrollY!==y)scrollTo(0,y)}
 
 /* ---------- stock：买之前看一眼已经有几个 ---------- */
 function freshRowHTML(i){
@@ -719,7 +727,7 @@ document.addEventListener("click",async e=>{
     try{await S.db.doc("stock/"+s.id).update({[k]:Math.max(0,(+s[k]||0)+(+t.dataset.sstep))})}catch(_){toast("没保存成功")}
     return}
   if(t.dataset.item&&!t.dataset.pick){openItem(t.dataset.item);return}
-  if(t.dataset.item&&t.dataset.pick){const id=t.dataset.item;S.sortSel.has(id)?S.sortSel.delete(id):S.sortSel.add(id);render();return}
+  if(t.dataset.item&&t.dataset.pick){const id=t.dataset.item;S.sortSel.has(id)?S.sortSel.delete(id):S.sortSel.add(id);renderKeep();return}
   if(t.dataset.step){const i=byId(t.dataset.id);if(!i)return;
     try{await ref("items",i.id).update({qty:Math.max(1,qtyOf(i)+(+t.dataset.step))})}catch(_){toast("没保存成功")}
     return}
@@ -729,7 +737,7 @@ document.addEventListener("click",async e=>{
   if(box&&t.dataset.v!=null){
     const v=t.dataset.v;
     if(box.hasAttribute("data-modes")){t.setAttribute("aria-pressed",t.getAttribute("aria-pressed")==="true"?"false":"true");return}
-    if(box.dataset.f){const k=box.dataset.f;S[k]=S[k]===v?"":v;render();return}
+    if(box.dataset.f){const k=box.dataset.f;S[k]=S[k]===v?"":v;renderKeep();return}
     const k=box.dataset.fm;readForm();
     if(k==="colors"){const a=draft.colors,ix=a.indexOf(v);ix>=0?a.splice(ix,1):a.push(v)}
     else if(k==="pao")draft.pao=+v;
@@ -750,12 +758,12 @@ document.addEventListener("click",async e=>{
   else if(a==="keep"){try{await ref("items",t.dataset.id).update({kept:true});closeSheet();toast("好的，留着")}catch(_){toast("没保存成功")}}
   else if(a==="del-ask"){$("#del-zone").innerHTML=`<span class="sub">确定删除吗？照片也会一起删掉。用完了的话点「用完了」就好，不用删。</span><button class="btn danger" type="button" data-act="del" data-id="${esc(t.dataset.id)}">确定删除</button><button class="btn" type="button" data-act="close">取消</button>`}
   else if(a==="del"){const id=t.dataset.id;try{await ref("items",id).delete();try{await ref("photos",id).delete()}catch(_){}closeSheet();toast("已删除")}catch(_){toast("没删除成功")}}
-  else if(a==="sel-all"){activeItems().filter(i=>!i.loc||!locById(i.loc)).forEach(i=>S.sortSel.add(i.id));render()}
-  else if(a==="sel-none"){S.sortSel.clear();render()}
+  else if(a==="sel-all"){activeItems().filter(i=>!i.loc||!locById(i.loc)).forEach(i=>S.sortSel.add(i.id));renderKeep()}
+  else if(a==="sel-none"){S.sortSel.clear();renderKeep()}
   else if(a==="do-sort"){const ids=[...S.sortSel],to=S.sortTarget;t.disabled=true;let ok=0;
     for(const id of ids){try{await ref("items",id).update({loc:to});ok++}catch(_){}}
     S.sortSel.clear();toast(`已放进 ${locName(to)}：${ok} ${K.unit}`);render()}
-  else if(a==="rv-skip"){const i=byId(t.dataset.id);S.items=S.items.filter(x=>x!==i).concat([i]);render()}
+  else if(a==="rv-skip"){const i=byId(t.dataset.id);S.items=S.items.filter(x=>x!==i).concat([i]);renderKeep()}
   else if(a==="new-loc")openNewLoc(t.dataset.spotPre||"");
   else if(a==="new-stock")openStockForm(t.dataset.loc,null);
   else if(a==="stock-edit")openStockForm("",S.stock.find(x=>x.id===t.dataset.id));
@@ -791,11 +799,14 @@ document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.tar
 document.addEventListener("change",e=>{
   if(e.target.id==="file"&&e.target.files[0]){readForm();const f=e.target.files[0];draft._file=f;draft._preview=URL.createObjectURL(f);renderForm(true)}
   if(e.target.id==="file-chg"&&e.target.files[0])changeItemPhoto(S.chgPhotoId,e.target.files[0]);
-  if(e.target.id==="fLoc"){S.fLoc=e.target.value;render()}
-  if(e.target.id==="sortTarget"){S.sortTarget=e.target.value;render()}
+  if(e.target.id==="fLoc"){S.fLoc=e.target.value;e.target.blur();renderKeep()}
+  if(e.target.id==="sortTarget"){S.sortTarget=e.target.value;e.target.blur();renderKeep()}
 });
+document.addEventListener("compositionstart",e=>{if(e.target.id==="gq")S.composing=true});
+document.addEventListener("compositionend",e=>{if(e.target.id==="gq"){S.composing=false;S.gq=e.target.value;clearTimeout(S.qt);updateHomeBody()}});
 document.addEventListener("input",e=>{
-  if(e.target.id==="gq"){S.gq=e.target.value;clearTimeout(S.qt);S.qt=setTimeout(()=>rerenderKeepFocus("gq"),220)}
+  // 拼音还没选字（composing）时不搜，选完字由 compositionend 搜一次
+  if(e.target.id==="gq"){S.gq=e.target.value;if(S.composing||e.isComposing)return;clearTimeout(S.qt);S.qt=setTimeout(updateHomeBody,200)}
 });
 
 /* ---------- login ---------- */

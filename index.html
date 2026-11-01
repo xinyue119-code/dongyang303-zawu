@@ -168,6 +168,9 @@ label.f,.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(-
 .loc-row,.hit{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;text-align:left;width:100%}
 .loc-row .grow,.hit .grow{flex:1;min-width:0}
 .loc-row .grow b,.hit .grow b{display:block;font-size:14px}
+.sim{display:flex;align-items:center;gap:10px;margin-top:8px}
+.sim img{width:48px;height:48px;object-fit:cover;border-radius:8px;flex:none}
+.sim .grow{flex:1;min-width:0}.sim .grow b,.sim .grow .sub{display:block;overflow-wrap:anywhere}
 .loc-row .grow span{font-size:12px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hit{align-items:flex-start}
 .hit .snip{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
@@ -592,6 +595,43 @@ function closeSheet(){S.openLocId=null;$("#sheet-root").innerHTML="";document.bo
 $("#sheet-root").addEventListener("click",e=>{if(e.target.id==="sbg")closeSheet()});
 
 let draft=null;
+// 照片查重：每张图缩成 17×16 灰度算「差值指纹」（256 位，看形状）；再看颜色：4×4 的大致配色（按整体亮度拉平，
+// 换个光线也能对上），以及东西本身的色调（四边当背景，和背景差得多的格子算东西本身）。三样都接近才算像。
+// 已有东西的指纹从 thumb 现算，算过的记在内存里
+const SIGS=new Map();
+async function imgSig(src){
+  const im=await new Promise((res,rej)=>{const x=new Image();x.onload=()=>res(x);x.onerror=rej;x.src=src});
+  const c=document.createElement("canvas"),x=c.getContext("2d",{willReadFrequently:true});
+  c.width=17;c.height=16;x.drawImage(im,0,0,17,16);const p=x.getImageData(0,0,17,16).data,g=[];
+  for(let i=0;i<272;i++)g.push(p[i*4]*.3+p[i*4+1]*.59+p[i*4+2]*.11);
+  const bits=[];for(let r=0;r<16;r++)for(let k=0;k<16;k++)bits.push(g[r*17+k]<g[r*17+k+1]?1:0);
+  const px=i=>[p[i*4],p[i*4+1],p[i*4+2]],bg=[0,0,0];let nb=0;
+  for(let r=0;r<16;r++)for(let k=0;k<17;k++)if(!r||r===15||!k||k===16){px(r*17+k).forEach((v,j)=>bg[j]+=v);nb++}
+  bg.forEach((_,j)=>bg[j]/=nb);
+  let sub=[0,0,0],ns=0;for(let i=0;i<272;i++){const v=px(i);if(Math.abs(v[0]-bg[0])+Math.abs(v[1]-bg[1])+Math.abs(v[2]-bg[2])>60){v.forEach((y,j)=>sub[j]+=y);ns++}}
+  if(ns<8){sub=[0,0,0];for(let i=0;i<272;i++)px(i).forEach((y,j)=>sub[j]+=y)}
+  const t=sub[0]+sub[1]+sub[2]||1,hue=sub.map(v=>v/t);
+  c.width=4;c.height=4;x.drawImage(im,0,0,4,4);const q=x.getImageData(0,0,4,4).data,col=[];
+  for(let i=0;i<16;i++)col.push(q[i*4],q[i*4+1],q[i*4+2]);
+  const m=col.reduce((a,b)=>a+b,0)/48||1;
+  return {bits,hue,norm:col.map(v=>v/m*128)}}
+async function itemSig(i){const k=i.thumb.length,c=SIGS.get(i.id);if(c&&c.k===k)return c.sig;
+  try{const sig=await imgSig(i.thumb);SIGS.set(i.id,{k,sig});return sig}catch(_){return null}}
+function sigDist(a,b){let h=0;for(let i=0;i<256;i++)h+=a.bits[i]!==b.bits[i];
+  let n=0;for(let i=0;i<48;i++)n+=Math.abs(a.norm[i]-b.norm[i]);
+  const u=Math.abs(a.hue[0]-b.hue[0])+Math.abs(a.hue[1]-b.hue[1])+Math.abs(a.hue[2]-b.hue[2]);return {h,n:n/48,u}}
+async function findSimilar(src){
+  const me=await imgSig(src),out=[];
+  for(const i of activeItems()){if(!i.thumb||i.id===draft?.id)continue;const sg=await itemSig(i);if(!sg)continue;
+    const d=sigDist(me,sg);if(d.h<=40&&d.n<=10&&d.u<=.12)out.push({i,score:d.h/256+d.n/40+d.u})}
+  return out.sort((a,b)=>a.score-b.score).slice(0,3).map(x=>x.i)}
+async function simCheck(){const d=draft,f=d&&d._file;if(!f||d.id)return;d._sim=null;d._simOk=false;
+  let list=[];try{list=await findSimilar(d._preview)}catch(_){}
+  if(draft!==d||d._file!==f)return;d._sim=list;const z=$("#sim-zone");if(z)z.innerHTML=simHTML()}
+function simHTML(){const d=draft;if(!d||d.id||d._simOk||!d._sim||!d._sim.length)return "";
+  return `<div class="notice"><b>照片和${d._sim.length>1?"这几":"这"}${K.unit}很像，是已经录过的吗？</b>
+   ${d._sim.map(i=>`<div class="sim"><img src="${i.thumb}" alt=""><span class="grow"><b>${esc(itemTitle(i))}</b><span class="sub">${esc(K.noLoc?(isOpen(i)?"在用":"囤着 ×"+qtyOf(i)):locName(i.loc))}</span></span><button class="btn" type="button" data-item="${esc(i.id)}">看看那${K.unit}</button></div>`).join("")}
+   <div class="row" style="margin-top:8px"><button class="btn" type="button" data-act="sim-ignore">都不是，照样新增</button></div></div>`}
 function openForm(item){
   const st=S.sticky;
   draft=item?{...item,state:isOpen(item)?"open":"new",colors:[...(item.colors||[])],_file:null,_preview:item.thumb||""}
@@ -614,6 +654,7 @@ function renderForm(keep){
   openSheet(`<div class="row between"><h2>${edit?"编辑":"录入一"+K.unit}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
    <input type="file" id="file" accept="image/*" hidden>
    <button class="photo-pick" type="button" data-act="pick">${d._preview?`<img src="${d._preview}" alt=""><span class="chg">点击更换照片</span>`:`<span>点这里拍照或选照片<br><span class="sub">${esc(K.photoHint)}</span></span>`}</button>
+   <div id="sim-zone">${simHTML()}</div>
    <div class="f">类别 *${K.cats.map(g=>`<span>${esc(g.g)}</span><div class="cats" data-fm="cat">${g.items.map(([c])=>`<button class="chip cat" type="button" data-v="${esc(c)}" aria-pressed="${d.cat===c}">${catIcon(c)}${esc(c)}</button>`).join("")}</div>`).join("")}</div>
    <div class="f">现在是<div class="seg" data-fm="state">${Object.entries(STATES).map(([k,n])=>`<button type="button" data-v="${k}" aria-pressed="${d.state===k}">${n}${k==="new"?"（囤货）":""}</button>`).join("")}</div></div>
    ${open?"":`<label class="f">一样的有几${K.unit}<input type="number" id="fm-qty" value="${esc(d.qty||1)}" min="1" inputmode="numeric"></label>`}
@@ -751,6 +792,7 @@ document.addEventListener("click",async e=>{
   }
   const a=t.dataset.act;if(!a)return;
   if(a==="close")closeSheet();
+  else if(a==="sim-ignore"){draft._simOk=true;$("#sim-zone").innerHTML=`<div class="sub">好的，当作新的一${K.unit}。</div>`}
   else if(a==="pick")$("#file").click();
   else if(a==="save")saveDraft(false);
   else if(a==="save-next")saveDraft(true);
@@ -803,7 +845,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.dataset&&e.target.dataset.spot){e.preventDefault();openSpot(e.target.dataset.spot)}});
 document.addEventListener("change",e=>{
-  if(e.target.id==="file"&&e.target.files[0]){readForm();const f=e.target.files[0];draft._file=f;draft._preview=URL.createObjectURL(f);renderForm(true)}
+  if(e.target.id==="file"&&e.target.files[0]){readForm();const f=e.target.files[0];draft._file=f;draft._preview=URL.createObjectURL(f);renderForm(true);simCheck()}
   if(e.target.id==="file-chg"&&e.target.files[0])changeItemPhoto(S.chgPhotoId,e.target.files[0]);
   if(e.target.id==="fLoc"){S.fLoc=e.target.value;e.target.blur();renderKeep()}
   if(e.target.id==="sortTarget"){S.sortTarget=e.target.value;e.target.blur();renderKeep()}

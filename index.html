@@ -524,8 +524,9 @@ function openLoc(id){
     body+=`<h2 style="font-size:14px">记数量</h2>
      ${st.length?st.map(stockRowHTML).join(""):`<div class="empty">还没记存货</div>`}${S.ro?"":`<div class="row"><button class="btn" type="button" data-act="new-stock" data-loc="${esc(l.id)}">＋ 加一种</button></div>`}`}
   const its=activeItems().filter(i=>i.loc===id);
+  if(!S.ro)body+=`<div class="row"><button class="btn primary" type="button" data-act="loc-entry" data-id="${esc(id)}" data-as="item">＋ 录入到这里</button>${HOUSE?`<button class="btn" type="button" data-act="loc-entry" data-id="${esc(id)}" data-as="stock">＋ 记成存货</button>`:""}</div>`;
   body+=`<h2 style="font-size:14px">拍了照的</h2>
-   ${its.length?`<div class="grid">${its.map(i=>cardHTML(i,{sub:i.cat})).join("")}</div>`:`<div class="empty">这里还没有拍照记录的东西。${S.ro?"":"录入时选这个位置，就会出现在这里。"}</div>`}`;
+   ${its.length?`<div class="grid">${its.map(i=>cardHTML(i,{sub:i.cat})).join("")}</div>`:`<div class="empty">这里还没有拍照记录的东西。${S.ro?"":"点上面的「＋ 录入到这里」拍一张，就会出现在这里。"}</div>`}`;
   if(hasMode(l,"item"))body+=`<div class="sub">这里放的衣服，去<a href="${HOME_URL}#${esc(id)}">衣帽间</a>看。</div>`;
   const how=modesOf(l).filter(m=>MODES[m]).map(m=>MODES[m]).join("+");
   openSheet(`<div class="row between"><div class="row">${l.code?`<span class="code">${esc(l.code)}</span>`:""}<h2>${esc(l.name)}</h2></div><button class="btn" type="button" data-act="close">关闭</button></div>
@@ -642,8 +643,9 @@ function simHTML(){const d=draft;if(!d||d.id||d._simOk||!d._sim||!d._sim.length)
   return `<div class="notice"><b>照片和${d._sim.length>1?"这几":"这"}${K.unit}很像，是已经录过的吗？</b>
    ${d._sim.map(i=>`<div class="sim"><img src="${i.thumb}" alt=""><span class="grow"><b>${esc(itemTitle(i))}</b><span class="sub">${esc(K.noLoc?(isOpen(i)?"在用":"囤着 ×"+qtyOf(i)):locName(i.loc))}</span></span><button class="btn" type="button" data-item="${esc(i.id)}">看看那${K.unit}</button></div>`).join("")}
    <div class="row" style="margin-top:8px"><button class="btn" type="button" data-act="sim-ignore">都不是，照样新增</button></div></div>`}
-function openForm(item){
-  const st=S.sticky;
+// pre：从某个位置里点「录入」时带进来的 {loc, as}，位置先选好
+function openForm(item,pre){
+  const st=pre?{...S.sticky,...pre}:S.sticky;
   draft=item?{...item,state:isOpen(item)?"open":"new",colors:[...(item.colors||[])],_file:null,_preview:item.thumb||""}
     :{as:HOUSE?st.as||"item":"item",sName:"",sQty:1,sUnit:"个",sSub:"",sSubUnit:"",cat:st.cat,state:st.state,colors:[],loc:st.loc,note:"",shade:"",qty:1,opened:0,pao:paoFor(st.cat),exp:"",_file:null,_preview:""};
   renderForm();
@@ -845,6 +847,7 @@ document.addEventListener("click",async e=>{
   }
   const a=t.dataset.act;if(!a)return;
   if(a==="close")closeSheet();
+  else if(a==="loc-entry")openForm(null,{loc:t.dataset.id,as:t.dataset.as});
   else if(a==="sim-ignore"){draft._simOk=true;$("#sim-zone").innerHTML=`<div class="sub">好的，当作新的一${K.unit}。</div>`}
   else if(a==="pick")$("#file").click();
   else if(a==="save")saveDraft(false);

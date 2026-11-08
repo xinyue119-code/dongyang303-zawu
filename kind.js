@@ -35,6 +35,7 @@ window.KIND = {
     if (!locs.some(d => d.id === "fridge")) await db.doc("locations/fridge").set({ name: "冰箱", code: "", spot: "fridge", modes: ["list"], kind: "", out: false, fill: "", note: "", contents: "", order: Date.now() });
     await flag.set({ done: Date.now() });
   },
+  kitchen: true,             // 有「今天吃」分页：看天气和家里的调料、食品推荐菜（菜谱在 recipes.js）
   brand: true,               // 录入时多一栏品牌，能按品牌搜
   brandPh: "比如：无印良品 / 百乐 / Anker",
   searchHint: "找东西：印章、驱蚊、充电线…",

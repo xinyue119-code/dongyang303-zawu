@@ -409,7 +409,7 @@ function openStockPhoto(id){const s=S.stock.find(x=>x.id===id);if(!s)return;
 // 新增和修改共用一张表。「里面还有」是第二个数：比如水记 2 箱，再记开着的那箱里还剩几罐
 function openStockForm(locId,s){S.stFile=null;
   openSheet(`<div class="row between"><h2>${s?"修改存货":"加一种存货"}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
-   <div class="sub">放在：${esc(locName(s?s.loc:locId))}</div>
+   ${s?`<label class="f">放在哪里<select id="st-loc">${S.locs.filter(l=>l.id===s.loc||myLoc(l)||!hasMode(l,"item")).map(l=>`<option value="${esc(l.id)}" ${l.id===s.loc?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>`:`<div class="sub">放在：${esc(locName(locId))}</div>`}
    <input type="file" id="st-file" accept="image/*" hidden>
    <button class="photo-pick" type="button" id="st-pick" data-act="st-pick" style="aspect-ratio:16/9">${s&&s.thumb?`<img src="${s.thumb}" alt=""><span class="chg">点击更换照片</span>`:`<span>拍一张（可不拍）<br><span class="sub">拍下包装，以后一看就知道是哪种</span></span>`}</button>
    <label class="f">名称<input type="text" id="st-name" placeholder="比如：矿泉水 2L / 卫生巾 日用" value="${esc(s?s.name:"")}"></label>
@@ -876,6 +876,9 @@ document.addEventListener("click",async e=>{
     const f=S.stFile;t.disabled=true;if(f)$("#fm-msg").textContent="照片处理中…";
     try{let full=null;if(f){body.thumb=await toJpeg(f,260,[.72,.6]);full=await toJpeg(f,900,[.75,.62,.5,.4])}
       let id=t.dataset.id;
+      // 修改时可以换位置；新位置原来没有「记数量」就加上，其他记录方式原样留着
+      const nl=id&&$("#st-loc")?locById($("#st-loc").value):null;
+      if(nl){body.loc=nl.id;if(!hasMode(nl,"count"))await S.db.doc("locations/"+nl.id).update({modes:[...modesOf(nl),"count"]})}
       if(id)await S.db.doc("stock/"+id).update(body);else id=(await S.db.collection("stock").add({...body,loc:t.dataset.loc,created:Date.now()})).id;
       if(full){await ref("photos","st-"+id).set({data:full});S.photoCache["st-"+id]=full}
       closeSheet();toast(t.dataset.id?"已保存":"已添加")}catch(_){t.disabled=false;$("#fm-msg").textContent="没保存成功，请再试一次"}}

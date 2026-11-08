@@ -11,7 +11,6 @@ window.KIND = {
   colors: ["黑", "蓝", "红", "绿", "橙", "粉", "紫", "黄", "灰", "棕", "多色"],
   cats: [
     // 类别名改了的话，已经录的东西会对不上，所以只调顺序和分组，名字不动
-    { g: "吃的", items: [["调料"], ["食品"]] },
     { g: "生活", items: [["药品"], ["卫生用品"], ["清洁用品"], ["厨房用品"], ["雨具/包袋"]] },
     { g: "电子", items: [["充电线/充电器"], ["电池"], ["耳机/小电器"], ["存储卡/U盘"]] },
     { g: "其他", items: [["证件/文件"], ["印章/钥匙"], ["工具/五金"], ["纪念品"], ["其他"]] },
@@ -35,7 +34,8 @@ window.KIND = {
     if (!locs.some(d => d.id === "fridge")) await db.doc("locations/fridge").set({ name: "冰箱", code: "", spot: "fridge", modes: ["list"], kind: "", out: false, fill: "", note: "", contents: "", order: Date.now() });
     await flag.set({ done: Date.now() });
   },
-  kitchen: true,             // 有「今天吃」分页：看天气和家里的调料、食品推荐菜（菜谱在 recipes.js）
+  // 2026-11-09 起吃的和调料搬到「厨房」app：以前录在这里的调料、食品不再显示（厨房第一次打开时复制过去）
+  hideCats: ["调料", "食品"],
   brand: true,               // 录入时多一栏品牌，能按品牌搜
   brandPh: "比如：无印良品 / 百乐 / Anker",
   searchHint: "找东西：印章、驱蚊、充电线…",

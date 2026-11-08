@@ -19,7 +19,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
 <script src="kind.js"></script>
-<script src="recipes.js"></script>
 <script src="icons.js"></script>
 <style>
 /* 和衣帽间同一套骨架：手机单列、底部分页、底部弹出面板。只有这一段颜色和 kind.js 跟另一个 app 不一样。 */
@@ -169,6 +168,9 @@ label.f,.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(-
 .loc-row,.hit{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;text-align:left;width:100%}
 .loc-row .grow,.hit .grow{flex:1;min-width:0}
 .loc-row .grow b,.hit .grow b{display:block;font-size:14px}
+.meal{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;text-align:left;font:inherit;color:inherit;margin-bottom:6px}
+.meal img,.meal-ph{width:52px;height:52px;border-radius:8px;object-fit:cover;flex:none;background:var(--surface-2);display:grid;place-items:center;color:var(--muted)}.meal-ph svg{width:26px;height:26px}
+.meal .grow{flex:1;min-width:0}.meal .grow b,.meal .grow .sub{display:block;overflow-wrap:anywhere}
 .recipe{gap:6px}.recipe .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tag{font-size:12px;padding:1px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted)}.tag.soon{background:color-mix(in srgb,var(--warn) 22%,var(--surface));color:var(--fg)}
 .recipe .ok{color:var(--ok)}.miss{color:var(--tag)}
@@ -212,7 +214,7 @@ img{max-width:100%}
 <div id="toast-root"></div>
 
 <script>
-/* 这段脚本在「化妆台」和「杂物间」里一模一样，区别全在 kind.js。改了一边记得把另一边也换掉。
+/* 这段脚本在「化妆台」「杂物间」「厨房」里一模一样，区别全在 kind.js。改了一边记得把另外两边也换掉。
    数据放在衣帽间同一个 Firebase 里：<id>_items / <id>_photos 是自己的，locations 三个 app 共用。
    kind.js 里 house:true 的那个 app（杂物间）多出地图、清单、存货，收纳位置也在它那里增改。 */
 const K = window.KIND;
@@ -222,7 +224,7 @@ const HOUSE = !!K.house;
 const LOC = !K.noLoc;      // kind.js 里 noLoc:true 的 app 不记位置（化妆台）
 const CATS = K.cats.flatMap(g=>g.items);
 const CAT_PAO = Object.fromEntries(CATS);
-const STATES = {open:"在用", new:"没开封"};
+const STATES = K.states||{open:"在用", new:"没开封"};
 const SEASONS = ["春","夏","秋","冬"];
 const DAY = 86400000;
 const SPOTS = {
@@ -251,8 +253,8 @@ const dateText = ms => new Date(ms).toLocaleDateString("zh-CN");
 function addMonths(ms,n){const d=new Date(ms);d.setHours(0,0,0,0);d.setMonth(d.getMonth()+n);return d.getTime()}
 
 // 三个整理 app 互相跳转：首页最上面放另外两个的入口
-const APPS=[["closet","衣帽间","衣服和鞋","https://xinyue119-code.github.io/dongyang303/"],["zw","杂物间","杂物和存货","https://xinyue119-code.github.io/dongyang303-zawu/"],["cos","化妆台","化妆品","https://xinyue119-code.github.io/dongyang303-cosme/"]];
-const hopsHTML = me => `<nav class="hops" aria-label="另外两个整理 app">${APPS.filter(a=>a[0]!==me).map(([,n,sub,u])=>`<a class="hop" href="${u}"><img src="${u}icon-192.png" alt=""><span><b>${n}</b><span>${sub}</span></span></a>`).join("")}</nav>`;
+const APPS=[["closet","衣帽间","衣服和鞋","https://xinyue119-code.github.io/dongyang303/"],["zw","杂物间","杂物和存货","https://xinyue119-code.github.io/dongyang303-zawu/"],["cos","化妆台","化妆品","https://xinyue119-code.github.io/dongyang303-cosme/"],["fd","厨房","吃的和调料","https://xinyue119-code.github.io/dongyang303-food/"]];
+const hopsHTML = me => `<nav class="hops" aria-label="其他整理 app">${APPS.filter(a=>a[0]!==me).map(([,n,sub,u])=>`<a class="hop" href="${u}"><img src="${u}icon-192.png" alt=""><span><b>${n}</b><span>${sub}</span></span></a>`).join("")}</nav>`;
 const catIcon = (c,size="") => {const d=(window.CAT_ICONS||{})[c];return d?`<span class="ci ${size}" style="--h:${d[0]}" aria-hidden="true"><svg viewBox="0 0 24 24">${d[1]}</svg></span>`:""};
 const locById = id => S.locs.find(l=>l.id===id);
 const locName = id => { if(!id) return "待整理"; const l=locById(id); return l?l.name:"待整理"; };
@@ -303,9 +305,15 @@ const ICONS={
  stock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg>',
  sort:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h18v12H3zM3 8l2-4h14l2 4M9 12h6"/></svg>',
  food:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3.500 11h17a8.500 8.500 0 0 1-17 0z"/><path d="M9 4c-.8 1 .8 2 0 3.500M13 3.500c-.8 1 .8 2 0 3.500"/><path d="M17 3l-3 7"/></svg>',
+ meals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 10h14v3a7 7 0 0 1-14 0z"/><path d="M3 10h18"/><path d="M12 7V4M9 5.500h6"/></svg>',
  review:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>'};
 const KITCHEN = !!K.kitchen&&!!window.RECIPES;   // kind.js 里 kitchen:true 并且带了 recipes.js 的 app 有「今天吃」
-const TABS=(HOUSE?[["home","首页"],["map","地图"],["stock","存货"],...(KITCHEN?[["food","今天吃"]]:[]),["sort","整理"],["review","盘点"]]:[["home","首页"],["stock","囤货"],["sort","整理"],["review","盘点"]]).filter(t=>LOC||t[0]!=="sort");
+const MEALS = !!K.meals;   // kind.js 里 meals:true 的 app 有「做的饭」（厨房）
+const TABS=(HOUSE?[["home","首页"],["map","地图"],["stock","存货"],...(KITCHEN?[["food","今天吃"]]:[]),["sort","整理"],["review","盘点"]]
+  :[["home","首页"],...(KITCHEN?[["food","今天吃"]]:[]),...(MEALS?[["meals","做的饭"]]:[]),["stock","囤货"],["sort","整理"],["review","盘点"]])
+  .filter(t=>(LOC||t[0]!=="sort")&&!(K.noReview&&t[0]==="review"));
+// 「放在哪里」能选的位置：kind.js 里写了 locSpots 的只列那几个地方（厨房只列厨房和冰箱），cur 是这件现在的位置，总要留着
+const pickLocs = cur => K.locSpots?S.locs.filter(l=>K.locSpots.includes(l.spot)||l.id===cur):S.locs;
 const TAB_KEY="tab-"+K.id;
 function renderTabs(){$("#tabs").innerHTML=TABS.map(([k,n])=>`<button type="button" data-tab="${k}" ${S.tab===k?'aria-current="page"':""}>${ICONS[k]}${n}</button>`).join("")}
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;S.tab=b.dataset.tab;try{localStorage.setItem(TAB_KEY,S.tab)}catch(_){}$("#app").style.minHeight="";render();window.scrollTo(0,0)});
@@ -315,6 +323,7 @@ function header(sub){return `<div class="row between"><div class="brand"><img cl
 function render(){
   renderTabs();
   $("#fab").hidden = S.ro || !S.db || S.tab==="review";
+  $("#fab").textContent = S.tab==="meals"?"＋ 记一顿":"＋ 录入";
   const app=$("#app");
   if(!S.authReady)return;
   $(".tabs").hidden=!S.user;
@@ -328,6 +337,7 @@ function render(){
   else if(S.tab==="stock")app.innerHTML=stockTabHTML();
   else if(S.tab==="sort")app.innerHTML=sortHTML();
   else if(S.tab==="food"&&KITCHEN){app.innerHTML=foodHTML();loadWeather()}
+  else if(S.tab==="meals"&&MEALS)app.innerHTML=mealsHTML();
   else app.innerHTML=reviewHTML();
   if(scrollY!==y)scrollTo(0,y);
 }
@@ -562,7 +572,7 @@ function sortHTML(){
   const pend=items.filter(i=>!i.loc||!locById(i.loc));
   let h=`<div class="stack"><div><h1>整理</h1><div class="sub">先全部录入，再把没记位置的一起放进收纳</div></div>`;
   h+=`<section class="panel"><h2>放进收纳</h2>
-    <label class="f">要放进哪里<select id="sortTarget"><option value="">选择一个位置…</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${S.sortTarget===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>
+    <label class="f">要放进哪里<select id="sortTarget"><option value="">选择一个位置…</option>${pickLocs().map(l=>`<option value="${esc(l.id)}" ${S.sortTarget===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>
     ${pend.length?`<div class="sub">点选待整理的（已选 ${S.sortSel.size} ${K.unit}）</div><div class="grid">${pend.map(i=>cardHTML(i,{selectable:true,sel:S.sortSel.has(i.id),sub:i.cat})).join("")}</div>
     <div class="row"><button class="btn primary" type="button" data-act="do-sort" ${!S.sortTarget||!S.sortSel.size||S.ro?"disabled":""}>放进去</button><button class="btn" type="button" data-act="sel-all">全选</button><button class="btn" type="button" data-act="sel-none">清空</button></div>`
      :`<div class="empty">没有待整理的${items.length?"，全部都有位置了":""}</div>`}
@@ -637,7 +647,7 @@ async function searchCity(q){const box=$("#city-res");if(!q||!box)return;box.inn
 // 家里有什么：拍照录的「调料」「食品」＋ 厨房和冰箱里的存货（数量不为 0）＋ 厨房和冰箱清单里写的每一样
 function pantry(){
   const out=[],kitchen=l=>!!l&&(["kitchen","fridge"].includes(l.spot)||/厨房|冰箱|食/.test(l.name||""));
-  activeItems().filter(i=>["调料","食品"].includes(i.cat)).forEach(i=>out.push({name:[i.brand,i.note,i.shade].filter(Boolean).join(" ")||i.cat,src:"录的",days:daysLeft(i)}));
+  activeItems().forEach(i=>out.push({id:i.id,name:[i.brand,i.note,i.shade].filter(Boolean).join(" ")||i.cat,src:"录的",days:daysLeft(i)}));
   S.stock.filter(x=>kitchen(locById(x.loc))&&((+x.qty||0)>0||(+x.subQty||0)>0)).forEach(x=>out.push({name:x.name,src:"存货",days:null}));
   S.locs.filter(kitchen).forEach(l=>(l.contents||"").split(/[\n、，,;；]+/).map(x=>x.trim()).filter(Boolean).forEach(x=>out.push({name:x,src:"清单",days:null})));
   return out}
@@ -658,14 +668,17 @@ function scoreRecipes(pan,wx){
     if(r.w==="凉"&&hot){sc+=1.5;why="天热，吃点清爽的"}
     if(r.w==="凉"&&wx&&wx.amax<12)sc-=1.5;
     if(soon.length)sc+=2;
-    return {r,need,sea,opt,miss,seaMiss,soon,sc,why}}).sort((a,b)=>b.sc-a.sc)}
+    const recent=MEALS&&(S.meals||[]).some(m=>(m.name||"").trim()===r.n&&m.date>=ymd(Date.now()-3*DAY));
+    if(recent)sc-=3;
+    return {r,need,sea,opt,miss,seaMiss,soon,sc,why,recent}}).sort((a,b)=>b.sc-a.sc)}
 function recipeCard(x){const r=x.r,have=[...x.need,...x.sea,...x.opt].filter(y=>y.hit.length).map(y=>keyName(y.k));
   return `<div class="panel recipe"><div class="row between"><b>${esc(r.n)}</b><span class="sub">约 ${r.t} 分钟</span></div>
-   ${x.why||x.soon.length?`<div class="tags">${x.soon.length?`<span class="tag soon">先用掉：${esc([...new Set(x.soon.map(s=>s.name))].join("、"))}</span>`:""}${x.why?`<span class="tag">${esc(x.why)}</span>`:""}</div>`:""}
+   ${x.why||x.soon.length||x.recent?`<div class="tags">${x.soon.length?`<span class="tag soon">先用掉：${esc([...new Set(x.soon.map(s=>s.name))].join("、"))}</span>`:""}${x.why?`<span class="tag">${esc(x.why)}</span>`:""}${x.recent?`<span class="tag">这几天做过</span>`:""}</div>`:""}
    <div class="sub">${esc(r.how)}</div>
    ${have.length?`<div class="sub">家里有：<span class="ok">${esc(have.join("、"))}</span></div>`:""}
    ${x.miss.length||x.seaMiss.length?`<div class="sub">还缺：<span class="miss">${esc([...x.miss,...x.seaMiss].map(y=>keyName(y.k)).join("、"))}</span></div>`:""}
-   ${x.opt.some(y=>!y.hit.length)?`<div class="sub">有的话还能加：${esc(x.opt.filter(y=>!y.hit.length).map(y=>keyName(y.k)).join("、"))}</div>`:""}</div>`}
+   ${x.opt.some(y=>!y.hit.length)?`<div class="sub">有的话还能加：${esc(x.opt.filter(y=>!y.hit.length).map(y=>keyName(y.k)).join("、"))}</div>`:""}
+   ${MEALS&&!S.ro?`<div class="row"><button class="btn sm" type="button" data-act="cook" data-n="${esc(r.n)}">就做这个，记一顿</button></div>`:""}</div>`}
 function foodHTML(){
   const pl=wxPlace(),wx=S.wx,pan=pantry();
   let h=`<div class="stack"><div><h1>今天吃什么</h1><div class="sub">看天气和家里有的食品、调料，挑几道今天能做的菜</div></div>`;
@@ -683,6 +696,61 @@ function foodHTML(){
   if(pan.length)h+=`<details class="panel"><summary class="sub" style="cursor:pointer">家里有的吃的（${pan.length} 样）</summary><div class="chips" style="margin-top:8px">${pan.map(x=>`<span class="chip">${esc(x.name)}${x.days!=null&&x.days<=5?` <small class="miss">${x.days<0?"已过期":"剩"+x.days+"天"}</small>`:""}</span>`).join("")}</div>
     <div class="sub" style="margin-top:6px">来源：拍照录的调料和食品、厨房和冰箱的存货、厨房和冰箱清单里写的。</div></details>`;
   return h+`</div>`}
+
+/* ---------- meals：做的饭（厨房） ---------- */
+// <id>_meals：date（YYYY-MM-DD）、name、note、thumb（大图在 photos 的 "ml-"+id）、used [{id, done}]、by（邮箱）、created。
+// 新记一顿时，点了「用了」的东西记一次用过（没开封的就开一个），点了「用完了」的数量减一、只剩一个就标成用完。修改时不再动数量。
+const mealsSorted=()=>(S.meals||[]).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(b.created||0)-(a.created||0));
+const dayLabel=d=>d===ymd(Date.now())?"今天":d===ymd(Date.now()-DAY)?"昨天":d.slice(5).replace("-","/");
+function mealRow(m){const used=(m.used||[]).map(u=>byId(u.id)).filter(Boolean).map(itemTitle);
+  return `<button class="meal" type="button" data-act="meal-open" data-id="${esc(m.id)}">${m.thumb?`<img src="${m.thumb}" alt="">`:`<span class="meal-ph">${ICONS.meals}</span>`}
+   <span class="grow"><b>${esc(m.name||"（没写菜名）")}</b><span class="sub">${esc([used.length?"用了："+used.join("、"):"",m.note].filter(Boolean).join(" · "))}</span></span></button>`}
+function mealsHTML(){
+  const ms=mealsSorted();
+  let h=`<div class="stack"><div><h1>做的饭</h1><div class="sub">做了什么、用掉了什么，记一笔（右下角「＋ 记一顿」）</div></div>`;
+  if(!ms.length)h+=`<div class="empty">还没有记录。做完饭点「＋ 记一顿」，拍一张、写个菜名就行；用掉的东西点一下，厨房里的数量会跟着减。<br><br>在「今天吃」里点「就做这个」，菜名和要用的东西会帮你填好。</div>`;
+  const cnt={};ms.forEach(m=>{const n=(m.name||"").trim();if(n)cnt[n]=(cnt[n]||0)+1});
+  const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(top.length>2)h+=`<section><h2>常做的</h2><div class="chips">${top.map(([n,c])=>`<span class="chip">${esc(n)} ×${c}</span>`).join("")}</div></section>`;
+  let last="";ms.slice(0,100).forEach(m=>{if(m.date!==last){h+=`<div class="sub" style="margin-top:6px">${esc(dayLabel(m.date))}</div>`;last=m.date}h+=mealRow(m)});
+  return h+`</div>`}
+function openMeal(m,pre){
+  if(!S.mealDraft||S.mealDraft._for!==(m?m.id:"new")){
+    S.mealDraft={_for:m?m.id:"new",id:m?m.id:"",name:m?m.name||"":(pre&&pre.name)||"",date:m?m.date:ymd(Date.now()),note:m?m.note||"":"",
+      used:new Map(m?(m.used||[]).map(u=>[u.id,u.done?"done":"used"]):(pre&&pre.used||[]).map(id=>[id,"used"])),_file:null,_preview:m?m.thumb||"":""}}
+  const d=S.mealDraft,edit=!!d.id;
+  const recentNames=[...new Set(mealsSorted().map(x=>(x.name||"").trim()).filter(Boolean))].slice(0,8);
+  const its=activeItems().slice().sort((a,b)=>(d.used.has(b.id)-d.used.has(a.id))||(isOpen(b)-isOpen(a)));
+  const mark=v=>v==="done"?" · 用完了":v==="used"?" · 用了":"";
+  openSheet(`<div class="row between"><h2>${edit?"修改":"记一顿"}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
+   <input type="file" id="ml-file" accept="image/*" hidden>
+   <button class="photo-pick" type="button" id="ml-pick" data-act="ml-pick" style="aspect-ratio:16/9">${d._preview?`<img src="${d._preview}" alt=""><span class="chg">点击更换照片</span>`:`<span>拍一张（可不拍）</span>`}</button>
+   <div class="f">做了什么<input type="text" id="ml-name" value="${esc(d.name)}" placeholder="比如：番茄炒蛋、味噌汤">${recentNames.length?`<div class="chips">${recentNames.map(n=>`<button class="chip" type="button" data-act="ml-name-pick" data-v="${esc(n)}">${esc(n)}</button>`).join("")}</div>`:""}</div>
+   <label class="f">哪天<input type="date" id="ml-date" value="${esc(d.date)}"></label>
+   ${edit?((m&&m.used||[]).length?`<div class="sub">用了：${esc((m.used||[]).map(u=>{const i=byId(u.id);return i?itemTitle(i)+(u.done?"（用完）":""):""}).filter(Boolean).join("、"))}。数量在记的时候已经减过了。</div>`:"")
+     :`<div class="f">用到了什么（点一下＝用了，再点＝用完了，再点取消）${its.length?`<div class="chips">${its.map(i=>`<button class="chip" type="button" data-act="ml-use" data-id="${esc(i.id)}" aria-pressed="${d.used.has(i.id)}">${esc(itemTitle(i))}${mark(d.used.get(i.id))}</button>`).join("")}</div>`:`<span>厨房里还没录东西</span>`}</div>`}
+   <label class="f">备注（可不填）<input type="text" id="ml-note" value="${esc(d.note)}" placeholder="比如：盐放多了 / 下次加点辣"></label>
+   <div class="row"><button class="btn primary" type="button" data-act="meal-save">保存</button></div><div class="sub" id="fm-msg"></div>
+   ${edit?`<div class="row" id="mdel-zone"><button class="btn danger" type="button" data-act="meal-del-ask">删除这条</button></div>`:""}`)}
+function reopenMeal(){const d=S.mealDraft;if(!d)return;d.name=$("#ml-name")?.value??d.name;d.date=$("#ml-date")?.value||d.date;d.note=$("#ml-note")?.value??d.note;
+  const top=$(".sheet")?.scrollTop||0;openMeal(d.id?(S.meals||[]).find(x=>x.id===d.id):null);const sh=$(".sheet");if(sh){sh.style.animation="none";sh.scrollTop=top}}
+async function saveMeal(btn){
+  const d=S.mealDraft;if(!d)return;const msg=$("#fm-msg");
+  const body={name:($("#ml-name")?.value||"").trim(),date:$("#ml-date")?.value||ymd(Date.now()),note:($("#ml-note")?.value||"").trim()};
+  if(!body.name&&!d._file){msg.textContent="写个菜名，或者拍一张";return}
+  btn.disabled=true;msg.textContent="保存中…";
+  try{let full=null;if(d._file){body.thumb=await toJpeg(d._file,260,[.72,.6]);full=await toJpeg(d._file,900,[.75,.62,.5,.4]);body.hasPhoto=true}
+    let id=d.id;
+    if(id)await ref("meals",id).update(body);
+    else{body.used=[...d.used].map(([iid,v])=>({id:iid,done:v==="done"}));body.by=(S.user?.email||"").toLowerCase();body.created=Date.now();
+      id=(await col("meals").add(body)).id;
+      for(const [iid,v] of d.used){const i=byId(iid);if(!i)continue;
+        if(v==="done"){if(qtyOf(i)>1)await ref("items",iid).update({qty:qtyOf(i)-1});else await ref("items",iid).update({status:"gone",goneAt:Date.now()})}
+        else if(!isOpen(i))await openOne(iid);
+        else await ref("items",iid).update({lastUsed:Date.now(),usedCount:(i.usedCount||0)+1})}}
+    if(full){await ref("photos","ml-"+id).set({data:full});S.photoCache["ml-"+id]=full}
+    S.mealDraft=null;closeSheet();toast(d.id?"已保存":"记下了")}
+  catch(e){btn.disabled=false;msg.textContent="没保存成功："+(e&&e.message?e.message:"请稍后再试")}}
 
 /* ---------- sheets ---------- */
 function openSheet(html,locId){S.openLocId=locId||null;$("#sheet-root").innerHTML=`<div class="sheet-bg" id="sbg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;document.body.style.overflow="hidden"}
@@ -768,7 +836,7 @@ function renderForm(keep){
    <label class="f">名称（可不填）<input type="text" id="fm-note" placeholder="${esc(K.notePh)}" value="${esc(d.note||"")}"></label>
    <label class="f">${esc(K.shadeLabel)}（可不填）<input type="text" id="fm-shade" placeholder="${esc(K.shadePh)}" value="${esc(d.shade||"")}"></label>
    ${K.colors?`<div class="f">颜色（可不填）<div class="chips" data-fm="colors">${K.colors.map(c=>chip(c,c,d.colors.includes(c))).join("")}</div></div>`:""}
-   ${LOC?`<label class="f">放在哪里<select id="fm-loc"><option value="">待整理（之后再放）</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${d.loc===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>`:""}`}
+   ${LOC?`<label class="f">放在哪里<select id="fm-loc"><option value="">待整理（之后再放）</option>${pickLocs(d.loc).map(l=>`<option value="${esc(l.id)}" ${d.loc===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>`:""}`}
    <div class="row">${edit?`<button class="btn primary" type="button" data-act="save">保存</button>`:`<button class="btn primary" type="button" data-act="save-next">保存，下一${K.unit}</button><button class="btn" type="button" data-act="save">保存</button>`}</div>
    <div class="sub" id="fm-msg"></div>
    ${edit?`<div class="row" id="del-zone"><button class="btn danger" type="button" data-act="del-ask" data-id="${esc(d.id)}">删除</button></div>`:""}`);
@@ -904,7 +972,7 @@ async function openOne(id){
 /* ---------- events ---------- */
 document.addEventListener("click",async e=>{
   const t=e.target.closest("button,[data-spot]");if(!t)return;
-  if(t.id==="fab"){openForm(null);return}
+  if(t.id==="fab"){if(S.tab==="meals"){S.mealDraft=null;openMeal(null)}else openForm(null);return}
   if(t.dataset.loc&&!t.dataset.act){openLoc(t.dataset.loc);return}
   if(t.dataset.spot){openSpot(t.dataset.spot);return}
   if(t.dataset.sstep){const s=S.stock.find(x=>x.id===t.dataset.id);if(!s)return;
@@ -937,6 +1005,17 @@ document.addEventListener("click",async e=>{
   else if(a==="wx-change"){try{localStorage.removeItem("wxPlace")}catch(_){}S.wx=null;renderKeep()}
   else if(a==="wx-retry")loadWeather(true);
   else if(a==="food-more"){S.foodPage=(S.foodPage||0)+1;renderKeep()}
+  else if(a==="cook"){const x=scoreRecipes(pantry(),S.wx).find(y=>y.r.n===t.dataset.n);
+    const ids=x?[...new Set([...x.need,...x.sea,...x.opt].flatMap(y=>y.hit).map(h=>h.id).filter(Boolean))]:[];
+    S.mealDraft=null;openMeal(null,{name:t.dataset.n,used:ids})}
+  else if(a==="meal-new"){S.mealDraft=null;openMeal(null)}
+  else if(a==="meal-open"){if(S.ro)return;S.mealDraft=null;openMeal((S.meals||[]).find(x=>x.id===t.dataset.id))}
+  else if(a==="ml-pick")$("#ml-file").click();
+  else if(a==="ml-name-pick"){const n=$("#ml-name");if(n)n.value=t.dataset.v}
+  else if(a==="ml-use"){const u=S.mealDraft.used,v=u.get(t.dataset.id);if(!v)u.set(t.dataset.id,"used");else if(v==="used")u.set(t.dataset.id,"done");else u.delete(t.dataset.id);reopenMeal()}
+  else if(a==="meal-save")saveMeal(t);
+  else if(a==="meal-del-ask"){$("#mdel-zone").innerHTML=`<span class="sub">删除这条记录？用掉的数量不会加回去。</span><button class="btn danger" type="button" data-act="meal-del">确定删除</button>`}
+  else if(a==="meal-del"){const id=S.mealDraft.id;try{await ref("meals",id).delete();try{await ref("photos","ml-"+id).delete()}catch(_){}S.mealDraft=null;closeSheet();toast("已删除")}catch(_){toast("没删除成功")}}
   else if(a==="loc-entry")openForm(null,{loc:t.dataset.id,as:t.dataset.as});
   else if(a==="sim-ignore"){draft._simOk=true;$("#sim-zone").innerHTML=`<div class="sub">好的，当作新的一${K.unit}。</div>`}
   else if(a==="pick")$("#file").click();
@@ -1000,6 +1079,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.dataset&&e.target.dataset.spot){e.preventDefault();openSpot(e.target.dataset.spot)}});
 document.addEventListener("change",e=>{
+  if(e.target.id==="ml-file"&&e.target.files[0]&&S.mealDraft){const d=S.mealDraft;d._file=e.target.files[0];d._preview=URL.createObjectURL(d._file);const b=$("#ml-pick");if(b)b.innerHTML=`<img src="${d._preview}" alt=""><span class="chg">点击更换照片</span>`}
   if(e.target.id==="st-file"&&e.target.files[0]){S.stFile=e.target.files[0];const b=$("#st-pick");if(b)b.innerHTML=`<img src="${URL.createObjectURL(S.stFile)}" alt=""><span class="chg">点击更换照片</span>`}
   if(e.target.id==="file"&&e.target.files[0]){readForm();const f=e.target.files[0];draft._file=f;draft._preview=URL.createObjectURL(f);renderForm(true);simCheck()}
   if(e.target.id==="file-chg"&&e.target.files[0])changeItemPhoto(S.chgPhotoId,e.target.files[0]);
@@ -1045,8 +1125,9 @@ function start(){
     S.db=db;render();
     if(!S.ro&&K.migrate)K.migrate(db).catch(e=>console.warn("migrate",e));
     const err=e=>{console.warn(e);toast(e&&e.code==="permission-denied"?"这个账号没有权限查看":"连接中断，刷新页面试试")};
-    unsubs.push(col("items").onSnapshot(s=>{S.items=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.i=true;render()},err));
-    if(HOUSE)unsubs.push(db.collection("stock").orderBy("created").onSnapshot(s=>{S.stock=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.s=true;render();
+    unsubs.push(col("items").onSnapshot(s=>{S.items=s.docs.map(d=>({id:d.id,...d.data()})).filter(i=>!i.moved&&!(K.hideCats||[]).includes(i.cat));S.loaded.i=true;render()},err));
+    if(MEALS)unsubs.push(col("meals").onSnapshot(s=>{S.meals=s.docs.map(d=>({id:d.id,...d.data()}));if(["meals","food"].includes(S.tab)&&!$(".sheet"))renderKeep()},e=>console.warn(e)));
+    if(HOUSE)unsubs.push(db.collection("stock").orderBy("created").onSnapshot(s=>{S.stock=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>!x.moved);S.loaded.s=true;render();
       // 开着某个位置的面板时数量变了：重画面板，没保存的清单文字留着
       if(S.openLocId&&hasMode(locById(S.openLocId),"count")){const ta=$("#lc-contents"),txt=ta?ta.value:null,top=$(".sheet")?.scrollTop||0;openLoc(S.openLocId);
         const sh=$(".sheet");if(sh){sh.style.animation="none";sh.scrollTop=top}if(txt!=null&&$("#lc-contents"))$("#lc-contents").value=txt}},err));

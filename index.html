@@ -230,7 +230,7 @@ const SPOTS = {
 const MODES = {list:"记大概", count:"记数量"};
 
 const S = { items:[], locs:[], stock:[], tab:"home", gq:"", fCat:"", fState:"", fLoc:"", loaded:{i:false,l:!LOC,s:!HOUSE},
-  sortSel:new Set(), sortTarget:"", db:null, ro:false, photoCache:{}, sticky:{cat:"",state:"open",loc:""} };
+  sortSel:new Set(), sortTarget:"", db:null, ro:false, photoCache:{}, sticky:{cat:"",state:"open",loc:"",as:"item"} };
 
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -645,7 +645,7 @@ function simHTML(){const d=draft;if(!d||d.id||d._simOk||!d._sim||!d._sim.length)
 function openForm(item){
   const st=S.sticky;
   draft=item?{...item,state:isOpen(item)?"open":"new",colors:[...(item.colors||[])],_file:null,_preview:item.thumb||""}
-    :{cat:st.cat,state:st.state,colors:[],loc:st.loc,note:"",shade:"",qty:1,opened:0,pao:paoFor(st.cat),exp:"",_file:null,_preview:""};
+    :{as:HOUSE?st.as||"item":"item",sName:"",sQty:1,sUnit:"个",sSub:"",sSubUnit:"",cat:st.cat,state:st.state,colors:[],loc:st.loc,note:"",shade:"",qty:1,opened:0,pao:paoFor(st.cat),exp:"",_file:null,_preview:""};
   renderForm();
 }
 // 把输入框里已经填的东西收回 draft，重画表单时才不会丢
@@ -656,15 +656,22 @@ function readForm(){const d=draft,v=id=>{const el=document.getElementById(id);re
   if((x=v("fm-loc"))!=null)d.loc=x;
   if((x=v("fm-qty"))!=null)d.qty=Math.max(1,parseInt(x,10)||1);
   if((x=v("fm-opened"))!=null)d.opened=x?fromYmd(x):0;
-  if((x=v("fm-exp"))!=null)d.exp=x}
+  if((x=v("fm-exp"))!=null)d.exp=x;
+  if((x=v("fm-sname"))!=null)d.sName=x;
+  if((x=v("fm-sqty"))!=null)d.sQty=Math.max(0,parseInt(x,10)||0);
+  if((x=v("fm-sunit"))!=null)d.sUnit=x;
+  if((x=v("fm-ssub"))!=null)d.sSub=x;
+  if((x=v("fm-ssubunit"))!=null)d.sSubUnit=x}
 function renderForm(keep){
   const d=draft, edit=!!d.id, open=d.state==="open";
   const top=keep?($(".sheet")?.scrollTop||0):0;
   const chip=(v,n,on)=>`<button class="chip" type="button" data-v="${esc(v)}" aria-pressed="${on}">${esc(n)}</button>`;
-  openSheet(`<div class="row between"><h2>${edit?"编辑":"录入一"+K.unit}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
+  const asStock=HOUSE&&!edit&&d.as==="stock";
+  openSheet(`<div class="row between"><h2>${edit?"编辑":asStock?"录入存货":"录入一"+K.unit}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
+   ${HOUSE&&!edit?`<div class="seg" data-fm="as"><button type="button" data-v="item" aria-pressed="${!asStock}">逐${K.unit}记</button><button type="button" data-v="stock" aria-pressed="${asStock}">记成存货（名称＋数量）</button></div>`:""}
    <input type="file" id="file" accept="image/*" hidden>
    <button class="photo-pick" type="button" data-act="pick">${d._preview?`<img src="${d._preview}" alt=""><span class="chg">点击更换照片</span>`:`<span>点这里拍照或选照片<br><span class="sub">${esc(K.photoHint)}</span></span>`}</button>
-   <div id="sim-zone">${simHTML()}</div>
+   ${asStock?stockFieldsHTML(d):`<div id="sim-zone">${simHTML()}</div>
    <div class="f">类别 *${K.cats.map(g=>`<span>${esc(g.g)}</span><div class="cats" data-fm="cat">${g.items.map(([c])=>`<button class="chip cat" type="button" data-v="${esc(c)}" aria-pressed="${d.cat===c}">${catIcon(c)}${esc(c)}</button>`).join("")}</div>`).join("")}</div>
    <div class="f">现在是<div class="seg" data-fm="state">${Object.entries(STATES).map(([k,n])=>`<button type="button" data-v="${k}" aria-pressed="${d.state===k}">${n}${k==="new"?"（囤货）":""}</button>`).join("")}</div></div>
    ${open?"":`<label class="f">一样的有几${K.unit}<input type="number" id="fm-qty" value="${esc(d.qty||1)}" min="1" inputmode="numeric"></label>`}
@@ -675,11 +682,46 @@ function renderForm(keep){
    <label class="f">名称（可不填）<input type="text" id="fm-note" placeholder="${esc(K.notePh)}" value="${esc(d.note||"")}"></label>
    <label class="f">${esc(K.shadeLabel)}（可不填）<input type="text" id="fm-shade" placeholder="${esc(K.shadePh)}" value="${esc(d.shade||"")}"></label>
    ${K.colors?`<div class="f">颜色（可不填）<div class="chips" data-fm="colors">${K.colors.map(c=>chip(c,c,d.colors.includes(c))).join("")}</div></div>`:""}
-   ${LOC?`<label class="f">放在哪里<select id="fm-loc"><option value="">待整理（之后再放）</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${d.loc===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>`:""}
+   ${LOC?`<label class="f">放在哪里<select id="fm-loc"><option value="">待整理（之后再放）</option>${S.locs.map(l=>`<option value="${esc(l.id)}" ${d.loc===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>`:""}`}
    <div class="row">${edit?`<button class="btn primary" type="button" data-act="save">保存</button>`:`<button class="btn primary" type="button" data-act="save-next">保存，下一${K.unit}</button><button class="btn" type="button" data-act="save">保存</button>`}</div>
    <div class="sub" id="fm-msg"></div>
    ${edit?`<div class="row" id="del-zone"><button class="btn danger" type="button" data-act="del-ask" data-id="${esc(d.id)}">删除</button></div>`:""}`);
   if(keep){const s=$(".sheet");s.style.animation="none";s.scrollTop=top}
+}
+// 录入时选「记成存货」：和「存货」分页里加一种是同一份数据（stock），照片也一样存成 thumb + "st-"+id
+function stockFieldsHTML(d){
+  return `<label class="f">名称 *<input type="text" id="fm-sname" placeholder="比如：洗衣液 补充装 / 矿泉水 2L" value="${esc(d.sName||"")}"></label>
+   <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1;min-width:0">数量<input type="number" id="fm-sqty" value="${esc(d.sQty)}" min="0" inputmode="numeric"></label>
+   <label class="f" style="flex:1;min-width:0">单位<input type="text" id="fm-sunit" value="${esc(d.sUnit||"")}" placeholder="包 / 瓶 / 箱"></label></div>
+   <div class="f">里面还有多少（可不填）<div class="row" style="flex-wrap:nowrap"><input type="number" id="fm-ssub" style="flex:1;min-width:0" value="${esc(d.sSub||"")}" min="0" inputmode="numeric" placeholder="数量"><input type="text" id="fm-ssubunit" style="flex:1;min-width:0" value="${esc(d.sSubUnit||"")}" placeholder="单位：罐 / 瓶 / 片"></div></div>
+   <label class="f">放在哪里 *<select id="fm-loc"><option value="">选一个位置…</option>${S.locs.filter(l=>myLoc(l)||!hasMode(l,"item")).map(l=>`<option value="${esc(l.id)}" ${d.loc===l.id?"selected":""}>${esc(locLabel(l))}</option>`).join("")}</select></label>
+   <div class="sub">同一个位置已经有同名的存货，就把数量加上去，不会多出一条。</div>`}
+async function saveAsStock(next){
+  const d=draft,msg=$("#fm-msg"),name=(d.sName||"").trim();
+  if(!name){msg.textContent="请填名称";return}
+  if(!d.loc){msg.textContent="存货要选放在哪里";return}
+  msg.textContent="保存中…";
+  document.querySelectorAll('[data-act="save"],[data-act="save-next"]').forEach(b=>b.disabled=true);
+  try{
+    const l=locById(d.loc);
+    // 这个位置原来没有「记数量」：加上，其他记录方式原样留着
+    if(l&&!hasMode(l,"count"))await S.db.doc("locations/"+l.id).update({modes:[...modesOf(l),"count"]});
+    let thumb="",full=null;
+    if(d._file){thumb=await toJpeg(d._file,260,[.72,.6]);full=await toJpeg(d._file,900,[.75,.62,.5,.4])}
+    const subUnit=(d.sSubUnit||"").trim()||(String(d.sSub||"").trim()?"个":""),subQty=subUnit?Math.max(0,parseInt(d.sSub,10)||0):0;
+    const same=S.stock.find(x=>x.loc===d.loc&&(x.name||"").trim().toLowerCase()===name.toLowerCase());
+    let id,txt;
+    if(same){id=same.id;const up={qty:(+same.qty||0)+d.sQty};
+      if(subUnit){up.subUnit=subUnit;up.subQty=(same.subUnit===subUnit?(+same.subQty||0):0)+subQty}
+      if(thumb)up.thumb=thumb;
+      await S.db.doc("stock/"+id).update(up);txt=`已加到「${same.name}」上，现在 ${up.qty}${same.unit||""}`}
+    else{const r=await S.db.collection("stock").add({name,qty:d.sQty,unit:(d.sUnit||"").trim(),subUnit,subQty,loc:d.loc,created:Date.now(),...(thumb?{thumb}:{})});
+      id=r.id;txt=`已记进存货：${name} ${d.sQty}${(d.sUnit||"").trim()}`}
+    if(full){await ref("photos","st-"+id).set({data:full});S.photoCache["st-"+id]=full}
+    S.sticky={...S.sticky,as:"stock",loc:d.loc};
+    if(next){toast(txt+"，接着录下一种");openForm(null)}else{closeSheet();toast(txt)}
+  }catch(e){msg.textContent="没保存成功："+(e&&e.message?e.message:"请稍后再试");
+    document.querySelectorAll('[data-act="save"],[data-act="save-next"]').forEach(b=>b.disabled=false)}
 }
 async function toJpeg(file,max,qs){
   const url=URL.createObjectURL(file);
@@ -693,6 +735,7 @@ async function toJpeg(file,max,qs){
 }
 async function saveDraft(next){
   readForm();
+  if(HOUSE&&!draft.id&&draft.as==="stock")return saveAsStock(next);
   const d=draft, msg=$("#fm-msg"), open=d.state==="open";
   if(!d.cat){msg.textContent="请先选一个类别";return}
   msg.textContent="保存中…";
@@ -707,7 +750,7 @@ async function saveDraft(next){
     if(id){await ref("items",id).update(body)}
     else{body.created=Date.now();body.lastUsed=0;body.usedCount=0;body.reviews={};const r=col("items").doc();id=r.id;await r.set(body)}
     if(full){await ref("photos",id).set({data:full});S.photoCache[id]=full}
-    S.sticky={cat:d.cat,state:d.state,loc:d.loc};
+    S.sticky={cat:d.cat,state:d.state,loc:d.loc,as:"item"};
     if(next){toast("已保存，接着拍下一"+K.unit);openForm(null)}else{closeSheet();toast("已保存")}
   }catch(e){msg.textContent="没保存成功："+(e&&e.message?e.message:"请稍后再试");
     document.querySelectorAll('[data-act="save"],[data-act="save-next"]').forEach(b=>b.disabled=false)}

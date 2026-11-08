@@ -391,17 +391,27 @@ function freshRowHTML(i){
   return `<div class="stock"><button class="mini" type="button" data-item="${esc(i.id)}" aria-label="看详情">${i.thumb?`<img src="${i.thumb}" alt="">`:(catIcon(i.cat)||"无图")}</button>
    <div class="txt"><b>${esc(itemTitle(i))}</b><span class="where">${esc([i.shade,LOC?locName(i.loc):""].filter(Boolean).join(" · "))}</span></div>
    <div class="stepper">${S.ro?"":`<button type="button" data-step="-1" data-id="${esc(i.id)}" aria-label="减一" ${qtyOf(i)<=1?"disabled":""}>−</button>`}<span class="q">${qtyOf(i)}</span>${S.ro?"":`<button type="button" data-step="1" data-id="${esc(i.id)}" aria-label="加一">＋</button><button class="go" type="button" data-act="open-one" data-id="${esc(i.id)}">开封</button>`}</div></div>`}
-// 存货：不拍照、只记名称和数量的（卫生巾、水、洗衣液…），跟着收纳位置走
+// 存货：只记名称和数量的（卫生巾、水、洗衣液…），跟着收纳位置走。可以配一张照片：小图存在存货本身（thumb），
+// 大图存在 <id>_photos 里，文档名是 "st-" + 存货 id
 function stockInner(s){
   const step=(k,q,u)=>`<div class="stepper">${S.ro?"":`<button type="button" data-sstep="-1" data-k="${k}" data-id="${esc(s.id)}" aria-label="减一">−</button>`}<span class="q">${esc(q)}<small>${esc(u||"")}</small></span>${S.ro?"":`<button type="button" data-sstep="1" data-k="${k}" data-id="${esc(s.id)}" aria-label="加一">＋</button>`}</div>`;
   return `<div class="txt"><b>${esc(s.name)}</b><span class="where">${esc(locName(s.loc))}</span></div>
    <div class="row" style="flex-wrap:nowrap;gap:4px">${step("qty",s.qty,s.unit)}${S.ro?"":`<button class="btn sm" type="button" data-act="stock-edit" data-id="${esc(s.id)}">编辑</button>`}</div>
    ${s.subUnit?`<div class="inner"><span>里面还有</span>${step("subQty",s.subQty||0,s.subUnit)}</div>`:""}`}
-function stockRowHTML(s){return `<div class="stock two" id="stock-${esc(s.id)}">${stockInner(s)}</div>`}
+function stockRowHTML(s){return s.thumb?`<div class="stock" id="stock-${esc(s.id)}"><button class="mini" type="button" data-act="stock-photo" data-id="${esc(s.id)}" aria-label="看照片"><img src="${s.thumb}" alt=""></button>${stockInner(s)}</div>`
+  :`<div class="stock two" id="stock-${esc(s.id)}">${stockInner(s)}</div>`}
+function openStockPhoto(id){const s=S.stock.find(x=>x.id===id);if(!s)return;
+  openSheet(`<div class="row between"><h2>${esc(s.name)}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
+   <img class="big-photo" id="st-big" src="${s.thumb}" alt="">
+   <div class="sub">${esc(locName(s.loc))} · 现在有 ${esc(s.qty)}${esc(s.unit||"")}${s.subUnit?`，里面还有 ${esc(s.subQty||0)}${esc(s.subUnit)}`:""}</div>
+   ${S.ro?"":`<div class="row"><button class="btn" type="button" data-act="stock-edit" data-id="${esc(s.id)}">编辑</button></div>`}`);
+  loadFull("st-"+id,$("#st-big"))}
 // 新增和修改共用一张表。「里面还有」是第二个数：比如水记 2 箱，再记开着的那箱里还剩几罐
-function openStockForm(locId,s){
+function openStockForm(locId,s){S.stFile=null;
   openSheet(`<div class="row between"><h2>${s?"修改存货":"加一种存货"}</h2><button class="btn" type="button" data-act="close">关闭</button></div>
    <div class="sub">放在：${esc(locName(s?s.loc:locId))}</div>
+   <input type="file" id="st-file" accept="image/*" hidden>
+   <button class="photo-pick" type="button" id="st-pick" data-act="st-pick" style="aspect-ratio:16/9">${s&&s.thumb?`<img src="${s.thumb}" alt=""><span class="chg">点击更换照片</span>`:`<span>拍一张（可不拍）<br><span class="sub">拍下包装，以后一看就知道是哪种</span></span>`}</button>
    <label class="f">名称<input type="text" id="st-name" placeholder="比如：矿泉水 2L / 卫生巾 日用" value="${esc(s?s.name:"")}"></label>
    <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1;min-width:0">现在有几个<input type="number" id="st-qty" value="${esc(s?s.qty:1)}" min="0" inputmode="numeric"></label>
    <label class="f" style="flex:1;min-width:0">单位<input type="text" id="st-unit" value="${esc(s?s.unit||"":"个")}" placeholder="包 / 瓶 / 箱"></label></div>
@@ -817,11 +827,17 @@ document.addEventListener("click",async e=>{
   else if(a==="stock-save"){const name=$("#st-name").value.trim();if(!name){$("#fm-msg").textContent="请填名称";return}
     const sub=$("#st-sub").value.trim(),subUnit=$("#st-subunit").value.trim()||(sub?"个":"");
     const body={name,qty:Math.max(0,parseInt($("#st-qty").value,10)||0),unit:$("#st-unit").value.trim(),subUnit,subQty:subUnit?Math.max(0,parseInt(sub,10)||0):0};
-    try{if(t.dataset.id)await S.db.doc("stock/"+t.dataset.id).update(body);else await S.db.collection("stock").add({...body,loc:t.dataset.loc,created:Date.now()});
-      closeSheet();toast(t.dataset.id?"已保存":"已添加")}catch(_){$("#fm-msg").textContent="没保存成功，请再试一次"}}
+    const f=S.stFile;t.disabled=true;if(f)$("#fm-msg").textContent="照片处理中…";
+    try{let full=null;if(f){body.thumb=await toJpeg(f,260,[.72,.6]);full=await toJpeg(f,900,[.75,.62,.5,.4])}
+      let id=t.dataset.id;
+      if(id)await S.db.doc("stock/"+id).update(body);else id=(await S.db.collection("stock").add({...body,loc:t.dataset.loc,created:Date.now()})).id;
+      if(full){await ref("photos","st-"+id).set({data:full});S.photoCache["st-"+id]=full}
+      closeSheet();toast(t.dataset.id?"已保存":"已添加")}catch(_){t.disabled=false;$("#fm-msg").textContent="没保存成功，请再试一次"}}
+  else if(a==="st-pick")$("#st-file").click();
+  else if(a==="stock-photo")openStockPhoto(t.dataset.id);
   else if(a==="stock-del-ask"){const s=S.stock.find(x=>x.id===t.dataset.id);if(!s)return;
     $("#sdel-zone").innerHTML=`<span class="sub">删除「${esc(s.name)}」？</span><button class="btn danger" type="button" data-act="stock-del" data-id="${esc(s.id)}">确定删除</button><button class="btn" type="button" data-act="close">取消</button>`}
-  else if(a==="stock-del"){t.disabled=true;try{await S.db.doc("stock/"+t.dataset.id).delete();closeSheet();toast("已删除")}catch(_){t.disabled=false;toast("没删除成功")}}
+  else if(a==="stock-del"){t.disabled=true;try{await S.db.doc("stock/"+t.dataset.id).delete();try{await ref("photos","st-"+t.dataset.id).delete()}catch(_){}closeSheet();toast("已删除")}catch(_){t.disabled=false;toast("没删除成功")}}
   else if(a==="contents-save"){try{await S.db.doc("locations/"+t.dataset.id).update({contents:$("#lc-contents").value});toast("清单已保存")}catch(_){toast("没保存成功")}}
   else if(a==="loc-save"||a==="loc-create"){
     const l=a==="loc-save"?locById(t.dataset.id):null, say=m=>{const el=$("#fm-msg");el?el.textContent=m:toast(m)};
@@ -836,7 +852,7 @@ document.addEventListener("click",async e=>{
     $("#ldel-zone").innerHTML=`<span class="sub">确定删除吗？${(l.contents||"").trim()?"这里写的清单会删掉。":""}${ns?`这里的 ${ns} 种存货记录也会删掉。`:""}${n?`拍了照的 ${n} ${K.unit}会回到「待整理」。`:""}${hasMode(l,"item")?"这个位置在衣帽间里还放着衣服，那边不受影响。":""}</span><button class="btn danger" type="button" data-act="ldel" data-id="${esc(id)}">确定删除</button><button class="btn" type="button" data-act="close">取消</button>`}
   else if(a==="ldel"){const id=t.dataset.id,l=locById(id);t.disabled=true;
     try{for(const i of activeItems().filter(i=>i.loc===id)){await ref("items",i.id).update({loc:""})}
-      for(const s of S.stock.filter(s=>s.loc===id)){await S.db.doc("stock/"+s.id).delete()}
+      for(const s of S.stock.filter(s=>s.loc===id)){await S.db.doc("stock/"+s.id).delete();if(s.thumb)try{await ref("photos","st-"+s.id).delete()}catch(_){}}
       // 衣帽间还在用这个位置放衣服的话，只把杂物这部分拿掉，位置本身留着
       if(hasMode(l,"item"))await S.db.doc("locations/"+id).update({modes:["item"],contents:""});else await S.db.doc("locations/"+id).delete();
       closeSheet();toast("已删除")}catch(_){toast("没删除成功")}}
@@ -845,6 +861,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.dataset&&e.target.dataset.spot){e.preventDefault();openSpot(e.target.dataset.spot)}});
 document.addEventListener("change",e=>{
+  if(e.target.id==="st-file"&&e.target.files[0]){S.stFile=e.target.files[0];const b=$("#st-pick");if(b)b.innerHTML=`<img src="${URL.createObjectURL(S.stFile)}" alt=""><span class="chg">点击更换照片</span>`}
   if(e.target.id==="file"&&e.target.files[0]){readForm();const f=e.target.files[0];draft._file=f;draft._preview=URL.createObjectURL(f);renderForm(true);simCheck()}
   if(e.target.id==="file-chg"&&e.target.files[0])changeItemPhoto(S.chgPhotoId,e.target.files[0]);
   if(e.target.id==="fLoc"){S.fLoc=e.target.value;e.target.blur();renderKeep()}
